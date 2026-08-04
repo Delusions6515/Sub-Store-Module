@@ -35,12 +35,29 @@ start_bin() {
 
   log Info "starting ${bin_name} service."
   ulimit -SHn 1000000
-  chmod 777 "$bin_path"
+  chmod 755 "$bin_path" 2>/dev/null
 
   mv "$run_path/${bin_name}.log" "$run_path/${bin_name}.log.bak" >/dev/null 2>&1
   mv "$run_path/${bin_name}_error.log" "$run_path/${bin_name}_error.log.bak" >/dev/null 2>&1
   mv "$run_path/http-meta.log" "$run_path/http-meta.log.bak" >/dev/null 2>&1
   mv "$run_path/http-meta_error.log" "$run_path/http-meta_error.log.bak" >/dev/null 2>&1
+
+  # 低权限运行: 默认以 shell(uid 2000) 运行 node, 不授予多余权限
+  # 需要访问的目录 (run/ 与 http-meta/) 由安装脚本授权给该用户
+  local rp=""
+  if [ -n "${run_as_user:-}" ]; then
+    case "$run_as_user" in
+      shell|2000)
+        if command -v setpriv >/dev/null 2>&1; then
+          rp="setpriv --reuid 2000 --regid 2000 --init-groups"
+        else
+          log Warn "未找到 setpriv, 回退以 root 运行"
+        fi
+        ;;
+      root|"") : ;;
+      *) log Warn "未知 run_as_user: $run_as_user, 回退以 root 运行" ;;
+    esac
+  fi
 
   # Sub-Store 后端 (环境变量对应 Docker 版)
   export SUB_STORE_BACKEND_MERGE="$sub_store_backend_merge"
@@ -61,7 +78,7 @@ start_bin() {
   export SUB_STORE_BACKEND_CUSTOM_NAME="$sub_store_backend_custom_name"
   export SUB_STORE_BACKEND_CUSTOM_ICON="$sub_store_backend_custom_icon"
   export SUB_STORE_X_POWERED_BY="$sub_store_x_powered_by"
-  nohup "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
+  nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
 
   # HTTP-META (环境变量对应 http-meta 的 HOST/PORT/BODY_JSON_LIMIT 等)
   export BODY_JSON_LIMIT="$http_meta_body_json_limit"
@@ -70,7 +87,7 @@ start_bin() {
   export HOST="$http_meta_host"
   export PORT="$http_meta_port"
   export META_DISABLE_AUTO_CLEAN="$http_meta_disable_auto_clean"
-  nohup "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
 
   return 0
 }

@@ -1,0 +1,60 @@
+name: Build Sub-Store module
+
+on:
+  workflow_dispatch:
+    inputs:
+      abi:
+        description: '目标 ABI (all=全部 4 架构)'
+        default: all
+        options: [all, arm64-v8a, armeabi-v7a, x86_64, x86]
+      version:
+        description: 版本号 (留空则使用 module.prop 中的版本)
+        default: ''
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 手动选择具体 ABI 时只构建该 ABI; 默认/tag 推送构建全部 4 架构
+        abi: ${{ (inputs.abi || 'all') == 'all' && fromJSON('["arm64-v8a","armeabi-v7a","x86_64","x86"]') || fromJSON(format('["{0}"]', inputs.abi || 'all')) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils
+
+      - name: Build module
+        env:
+          TARGET_ABI: ${{ matrix.abi }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME:-}"
+          ./build.sh "$VERSION"
+          ls -lh build/*.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sub-store-module-${{ matrix.abi }}
+          path: build/*.zip
+          if-no-files-found: error
+
+      - name: Upload release (tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          tag: ${{ github.ref_name }}
+          artifacts: build/*.zip
+          allowUpdates: true
+          replacesArtifacts: true
+          omitBodyDuringUpdate: true
+          body: |
+            Sub-Store for Android 模块
+            构建记录: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

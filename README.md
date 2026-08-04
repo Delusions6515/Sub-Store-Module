@@ -12,6 +12,7 @@
 | 功能 | 说明 |
 | --- | --- |
 | 开机自启 | `service.sh` 在系统启动完成后自动拉起 Sub-Store 后端 / 前端 / HTTP-META |
+| 低权限运行 | node 默认以 `shell` (uid 2000) 低权限运行，不授予多余权限 |
 | 执行按钮 | 管理器内点击 **[执行]**，按音量键选择操作（VOL+ 下一个 / VOL- 确认） |
 | 全部更新 | Sub-Store 前后端 + http-meta 一次搞定 |
 | 拆分更新 | 后端 / 前端 / http-meta 可单独更新 |
@@ -80,6 +81,7 @@ http-meta 子菜单:
 | `http_meta_host` / `http_meta_port` | `HOST` / `PORT` | HTTP-META 监听（默认 9876） |
 | `http_meta_body_json_limit` | `BODY_JSON_LIMIT` | HTTP-META Body 限制 |
 | `http_meta_disable_auto_clean` | `META_DISABLE_AUTO_CLEAN` | 调试：保留核心运行日志/配置 |
+| `run_as_user` | - | 运行用户：`shell`(默认, uid 2000 低权限) / 置空=root |
 
 ## 手动操作
 
@@ -100,15 +102,28 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 
 ## 构建
 
+### GitHub Actions（推荐）
+
+- 手动触发：Actions → Build Sub-Store module → Run workflow，可选 ABI 与版本号
+- 推送 `v*` tag：自动构建并发布 release
+- 所有组件在线获取，无需本地参考文件；node 二进制来自 [node-android-build](https://github.com/Delusions6515/node-android-build) 的 release（先构建该仓库）
+
+### 本地构建
+
 ```sh
-./build.sh                    # 默认版本 (module.prop)
+./build.sh                    # 默认版本 (module.prop), arm64-v8a
 ./build.sh v2.1.0             # 指定版本
-./build.sh v2.1.0 out.zip     # 指定版本和输出路径
+TARGET_ABI=armeabi-v7a ./build.sh v2.1.0   # 指定 ABI
+NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
 ```
 
-- 内置二进制（node 运行时、Sub-Store bundle、前端、http-meta、mihomo 内核）来自外部参考 zip，
-  通过环境变量 `SUBSTORE_REF_ZIP` 指定；未设置时自动查找当前目录 / 仓库目录下的
-  `Sub-Store for Android.zip`；也可以预先解压到 `module/sub_store/bin/` 直接使用
+- 组件来源：
+  - **node**：`NODE_REPO`（默认 `Delusions6515/node-android-build`）release 列表中
+    `node-android-<arch>-*` 版本号最大者（该仓库默认构建全部 4 架构且保留历史版本）；
+    可用 `NODE_DIST_URL` / `NODE_BIN_PATH` 覆盖
+  - **后端**：`sub-store-org/Sub-Store` latest release
+  - **前端**：`sub-store-org/Sub-Store-Front-End` latest release
+  - **http-meta**：`xream/http-meta` latest release + `MetaCubeX/mihomo` 稳定版内核
 - 构建产物默认输出到当前目录的 `build/` 下（可用 `OUT_DIR` 覆盖）
 - 自动下载官方 `module_installer.sh` 生成 META-INF（恢复模式刷入用），失败时跳过（管理器安装不受影响）
 
@@ -116,7 +131,8 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 
 ```
 Sub-Store-Module/
-├── build.sh                  # 构建脚本
+├── .github/workflows/build.yml # GitHub Actions 构建 (手动/打 tag)
+├── build.sh                  # 构建脚本 (在线获取全部组件)
 ├── module/
 │   ├── module.prop           # 模块元数据
 │   ├── customize.sh          # 安装脚本

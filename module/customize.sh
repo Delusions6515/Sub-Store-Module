@@ -58,11 +58,17 @@ done
 
 # 权限
 set_perm_recursive "$MODPATH" 0 0 0755 0644
-set_perm_recursive "$BIN_DIR" 0 0 0755 0700
-set_perm "$SCRIPTS_DIR/sub_store.config" 0 0 0644
+# 二进制目录: 文件 0644/可执行 0755, root 所有; shell 用户可读可执行
+set_perm_recursive "$BIN_DIR" 0 0 0755 0644
+chmod 755 "$BIN_DIR/sub_store_node" "$BIN_DIR/http-meta/http-meta" 2>/dev/null
+# 低权限运行 (默认 shell uid 2000): 运行目录与 http-meta 目录授权给该用户
+# (mihomo 需要写 geoip 数据库, node 需要写日志/数据)
+chown -R 2000:2000 "$RUN_DIR" "$BIN_DIR/http-meta" 2>/dev/null || true
+# 配置文件含推送 token 等敏感信息, root 专属
+set_perm "$SCRIPTS_DIR/sub_store.config" 0 0 0600
 chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh 2>/dev/null
 
 ui_print "- 安装完成"
-ui_print "- 重启后 Sub-Store 将自动启动:"
+ui_print "- 重启后 Sub-Store 将自动启动 (低权限 shell 用户运行):"
 ui_print "  http://127.0.0.1:3001  (后端 :3000, HTTP-META :9876)"
 ui_print "- 管理器内点击 [执行] 可按音量键选择更新"
