@@ -70,13 +70,17 @@ fetch_node() {  # $1 = sub_store/bin 目录
   else
     local repo="${NODE_REPO:-Delusions6515/node-android-build}"
     info "node: 从 $repo 查找最新 node-android-${NODE_ARCH}-* release ..."
-    local json ver
+    local json ver rel
     json=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases?per_page=100")
-    # release 按版本归档 (node-android-<arch>-<version>, 保留历史), 取版本号最大者
+    # 扫描全部 release tag, 取该架构版本号最大者 (release 按版本归档, 保留历史)
     ver=$(echo "$json" | grep -oE '"tag_name": "node-android-'"${NODE_ARCH}"'-[0-9.]+"' \
       | sed -E 's/.*"node-android-'"${NODE_ARCH}"'-([0-9.]+)".*/\1/' | sort -V | tail -n 1)
     [ -n "$ver" ] || die "未找到 node-android-${NODE_ARCH}-* release (需要先构建 node-android-build 仓库)"
-    url="https://github.com/$repo/releases/download/node-android-${NODE_ARCH}-${ver}/node-android-${NODE_ARCH}-${ver}.tar.xz"
+    # 从该 release 的实际资产中取下载地址 (顺带验证产物存在)
+    rel=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases/tags/node-android-${NODE_ARCH}-${ver}")
+    url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${ver}"'\.tar\.xz"' \
+      | head -n 1 | sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
+    [ -n "$url" ] || die "release node-android-${NODE_ARCH}-${ver} 中未找到 node-android-${NODE_ARCH}-${ver}.tar.xz 资产"
   fi
   ver=$(basename "$url" | sed -E 's/node-android-[a-z0-9]+-([0-9.]+)\.tar\.xz/\1/')
   info "node: 下载 $ver ($NODE_ARCH) ..."
