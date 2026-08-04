@@ -1,0 +1,6 @@
+# 构建产物
+build/
+*.zip
+
+# 内置二进制 (由 build.sh 从参考 zip 提取, 不入库)
+module/sub_store/

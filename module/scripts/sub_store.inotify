@@ -1,0 +1,26 @@
+#!/system/bin/sh
+# ============================================================
+# 模块目录监控 (由 inotifyd 调用)
+# 事件: c=创建文件  d=删除文件
+# 模块被禁用 (disable 文件创建) -> 停止服务
+# 模块被启用 (disable 文件删除) -> 重启服务
+# ============================================================
+
+events=$1
+monitor_dir=$2
+monitor_file=$3
+
+SCRIPTS_DIR=$(dirname "$0")
+. "$SCRIPTS_DIR/lib.sh"
+load_config
+
+mkdir -p "$run_path"
+
+if [ "$monitor_file" = "disable" ]; then
+  case "$events" in
+    *c*) "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+    *d*) "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+  esac
+fi
+
+exit 0
