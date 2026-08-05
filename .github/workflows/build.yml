@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload release (tag push)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: ncipollo/release-action@v1.14.0
+        uses: ncipollo/release-action@v1.21.0
         with:
           tag: ${{ github.ref_name }}
           artifacts: build/*.zip
