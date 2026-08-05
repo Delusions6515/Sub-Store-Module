@@ -101,8 +101,13 @@ jobs:
         run: |
           git config user.name "Delusions6515"
           git config user.email "213381333+Delusions6515@users.noreply.github.com"
-          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
-          git checkout gh-pages
+          if git fetch origin gh-pages:gh-pages 2>/dev/null; then
+            git checkout gh-pages
+          else
+            # 首次: gh-pages 不存在, 用 orphan 分支创建 (清空索引只提交 JSON)
+            git checkout --orphan gh-pages
+            git rm -rf --cached . >/dev/null 2>&1 || git rm -rf . >/dev/null 2>&1 || true
+          fi
           cp update-*.json .
           git add update-*.json
           if git commit -m "update json: $TAG"; then
