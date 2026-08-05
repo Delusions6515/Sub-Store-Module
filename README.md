@@ -174,5 +174,5 @@ NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
 
 ## 许可
 
-GPL-3.0。本模块脚本基于 xream 的 [Sub-Store for Magisk](https://github.com/xream/Sub-Store-for-Magisk) 重新开发；
+GPL-3.0。本模块脚本基于 xream 的 [Sub-Store for Magisk, KernelSU & APatch](https://t.me/zhetengsha/1008) 重新开发；
 Sub-Store / HTTP-META / mihomo 版权归其各自作者所有。
