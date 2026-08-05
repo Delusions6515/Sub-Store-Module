@@ -47,14 +47,42 @@ mkdir -p "$BIN_DIR" "$SCRIPTS_DIR" "$RUN_DIR"
 chmod 0700 "$DATA_DIR" 2>/dev/null || true
 chown 2000:2000 "$DATA_DIR" 2>/dev/null || true
 
-# 内置二进制: 仅在全新安装时拷贝
-# 升级时保留 $DATA_DIR/bin 中已被 [执行] 按钮更新过的版本
+# 音量键交互: 检测到已有二进制时询问是否用包内新版本覆盖
+# 0=音量+ 覆盖  1=音量-/超时 跳过
+GETEVENT=$(command -v getevent 2>/dev/null || echo /system/bin/getevent)
+TIMEOUT_BIN=$(command -v timeout 2>/dev/null || echo "")
+
+ask_cover_bin() {
+  ui_print "- 音量+ 覆盖 / 其他键 跳过 (5 秒无按键自动跳过)"
+  local line=""
+  while :; do
+    if [ -n "$TIMEOUT_BIN" ]; then
+      line=$("$TIMEOUT_BIN" 5 "$GETEVENT" -qlc 1 2>/dev/null)
+    else
+      line=$("$GETEVENT" -qlc 1 2>/dev/null)
+    fi
+    case "$line" in
+      *KEY_VOLUMEUP*DOWN*)   return 0 ;;
+      *KEY_VOLUMEDOWN*DOWN*) return 1 ;;
+      "")                    return 1 ;;
+      *) : ;; # UP 等无关事件, 忽略并继续读取
+    esac
+  done
+}
+
+# 内置二进制: 全新安装直接拷贝; 升级时询问是否覆盖
 if [ ! -f "$BIN_DIR/sub_store_node" ]; then
   ui_print "- 首次安装: 拷贝内置二进制"
   cp -rf "$MODPATH/sub_store/bin/." "$BIN_DIR/"
 else
-  ui_print "- 检测到已有运行时数据, 保留现有二进制"
-  ui_print "- 组件更新请使用管理器内的 [执行] 按钮"
+  ui_print "- 检测到已有二进制"
+  if ask_cover_bin; then
+    ui_print "- 已选择覆盖: 用包内二进制覆盖现有版本"
+    cp -rf "$MODPATH/sub_store/bin/." "$BIN_DIR/"
+  else
+    ui_print "- 已选择跳过: 保留现有二进制"
+    ui_print "- 组件更新请使用管理器内的 [执行] 按钮"
+  fi
 fi
 rm -rf "$MODPATH/sub_store"
 
