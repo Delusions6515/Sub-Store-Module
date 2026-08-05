@@ -23,13 +23,10 @@ load_config() {
     exit 1
   }
   # 环境变量文件缺失时回退模块内置默认 (升级前旧配置无此文件)
-  if [ -f "$ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    . "$ENV_FILE" 2>/dev/null
-  elif [ -f "$SCRIPTS_DIR/sub_store.env" ]; then
-    # shellcheck disable=SC1090
-    . "$SCRIPTS_DIR/sub_store.env" 2>/dev/null
-  fi
+  # ENV_SOURCE 记录实际加载的文件, 供服务脚本导入全部变量
+  ENV_SOURCE="$ENV_FILE"
+  [ -f "$ENV_SOURCE" ] || ENV_SOURCE="$SCRIPTS_DIR/sub_store.env"
+  [ -f "$ENV_SOURCE" ] && . "$ENV_SOURCE" 2>/dev/null
 }
 
 # ---------- 输出 ----------

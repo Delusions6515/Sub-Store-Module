@@ -75,7 +75,8 @@ http-meta 子菜单:
 
 - **`sub_store.config`**：仅模块特有配置（路径、运行用户等）
 - **`sub_store.env`**：服务环境变量，全大写命名、与 Docker 版一致
-  （内容与注释参考 [xream/sub-store](https://hub.docker.com/r/xream/sub-store) Docker 介绍）
+  （内容与注释参考 [xream/sub-store](https://hub.docker.com/r/xream/sub-store) Docker 介绍）；
+  **文件中定义的所有变量都会在服务启动时导入进程**，新增 Docker 环境变量直接加进文件即可，无需改脚本
 
 `sub_store.env` 中的环境变量（对应 Docker 版）：
 

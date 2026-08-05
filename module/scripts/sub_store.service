@@ -59,17 +59,15 @@ start_bin() {
     esac
   fi
 
-  # Sub-Store 后端 (环境变量对应 Docker 版, 来自 sub_store.env)
-  export SUB_STORE_BACKEND_MERGE SUB_STORE_BACKEND_PREFIX SUB_STORE_FRONTEND_BACKEND_PATH \
-    SUB_STORE_BODY_JSON_LIMIT SUB_STORE_MAX_HEADER_SIZE SUB_STORE_CORS_ALLOWED_ORIGINS \
-    SUB_STORE_BACKEND_DEFAULT_PROXY SUB_STORE_MMDB_COUNTRY_PATH SUB_STORE_MMDB_ASN_PATH \
-    SUB_STORE_FRONTEND_PATH SUB_STORE_FRONTEND_HOST SUB_STORE_FRONTEND_PORT \
-    SUB_STORE_DATA_BASE_PATH SUB_STORE_PUSH_SERVICE SUB_STORE_BACKEND_API_HOST \
-    SUB_STORE_BACKEND_API_PORT SUB_STORE_BACKEND_CUSTOM_NAME SUB_STORE_BACKEND_CUSTOM_ICON \
-    SUB_STORE_X_POWERED_BY
-
-  # HTTP-META (环境变量对应 http-meta docker tag, 来自 sub_store.env)
-  export HOST PORT BODY_JSON_LIMIT META_FOLDER META_TEMP_FOLDER META_DISABLE_AUTO_CLEAN
+  # 导入 sub_store.env 中定义的全部环境变量 (对应 Docker 版, 新增变量无需改脚本)
+  if [ -n "${ENV_SOURCE:-}" ] && [ -f "$ENV_SOURCE" ]; then
+    while IFS='=' read -r _env_k _env_v; do
+      case "$_env_k" in
+        \#*|"") continue ;;                       # 注释/空行
+        [A-Za-z_]*[A-Za-z0-9_]*) export "$_env_k" ;; # 有效变量名才导出
+      esac
+    done < "$ENV_SOURCE"
+  fi
   nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
 
   nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
