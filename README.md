@@ -3,7 +3,8 @@
 在 Android 上以系统级服务运行 [Sub-Store](https://github.com/sub-store-org/Sub-Store)（含 HTTP-META），
 并内置一键更新能力：在 Magisk / KernelSU / APatch 管理器中点击模块的 **[执行]** 按钮，即可用音量键选择更新项。
 
-- 模块 ID 与旧版 `sub_store` 相同，可直接覆盖升级 xream 原版模块，配置文件自动保留
+- 模块 ID 与旧版 `sub_store` 相同，但配置格式已变更（拆分为 `sub_store.config` + `sub_store.env`），
+  **不支持直接覆盖安装 xream 原版模块**；升级前请先卸载旧版并迁移配置
 - 开发严格遵循官方指南：[Magisk Developer Guides](https://topjohnwu.github.io/Magisk/guides.html) / [KernelSU Module Guide](https://kernelsu.org/guide/module.html) / [APatch APM Guide](https://apatch.dev/apm-guide.html)
 - 脚本基于 xream 的 [Sub-Store for Magisk](https://github.com/xream/Sub-Store-for-Magisk) 重新开发（GPL-3.0）
 
@@ -35,7 +36,7 @@
 - 后端：<http://127.0.0.1:3000>
 - HTTP-META：<http://127.0.0.1:9876>
 
-局域网访问：修改配置 `sub_store_backend_host` 为 `0.0.0.0` 后重启服务。
+局域网访问：修改 `sub_store.env` 中的 `SUB_STORE_BACKEND_API_HOST` 为 `0.0.0.0` 后重启服务。
 
 ## 执行按钮（音量键菜单）
 
@@ -158,31 +159,6 @@ NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
   - **http-meta**：`xream/http-meta` latest release + `MetaCubeX/mihomo` 稳定版内核
 - 构建产物默认输出到当前目录的 `build/` 下（可用 `OUT_DIR` 覆盖）
 - 自动下载官方 `module_installer.sh` 生成 META-INF（恢复模式刷入用），失败时跳过（管理器安装不受影响）
-
-## 目录结构
-
-```
-Sub-Store-Module/
-├── .github/workflows/build.yml # GitHub Actions 构建 (手动/打 tag)
-├── build.sh                  # 构建脚本 (在线获取全部组件)
-├── module/
-│   ├── module.prop           # 模块元数据
-│   ├── customize.sh          # 安装脚本
-│   ├── action.sh             # [执行] 按钮入口 (音量键菜单)
-│   ├── service.sh            # 开机启动 (late_start service)
-│   ├── uninstall.sh          # 卸载脚本
-│   └── scripts/
-│       ├── lib.sh            # 公共函数库
-│       ├── sub_store.config  # 默认配置 (仅模块特有: 路径/运行用户)
-│       ├── sub_store.env     # 默认环境变量 (对应 Docker 版, 全大写)
-│       ├── sub_store.service # 服务控制 start/stop/restart
-│       ├── sub_store.inotify # 模块开关监控
-│       ├── start.sh          # 开机启动入口
-│       ├── update_backend.sh # 更新 Sub-Store 后端
-│       ├── update_frontend.sh# 更新 Sub-Store 前端
-│       └── update_http_meta.sh # 更新 http-meta (js/tpl/内核)
-└── sub_store/bin/            # 内置二进制 (构建时从参考 zip 提取, 不入库)
-```
 
 ## 许可
 
