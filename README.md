@@ -90,6 +90,11 @@ http-meta 子菜单:
 修改配置后请**重启服务生效**；服务启动时会自动修正低权限用户（`run/`、`http-meta/`）的目录所有权，
 若配置已修改但未重启，运行更新等操作时会收到提醒。
 
+> ⚠️ **低权限用户不走 VPN**：node 以 `shell` (uid 2000) 运行，Android 的 VPN（Surge/Clash 等）
+> 默认只代理应用流量，shell 用户的流量**绕过 VPN 直连**。若订阅/机场需要代理访问，请在
+> `sub_store.env` 中设置 `SUB_STORE_BACKEND_DEFAULT_PROXY`（如 `socks5://127.0.0.1:7890`）；
+> http-meta 始终直连，不受影响。
+
 `sub_store.env` 中的环境变量（对应 Docker 版）：
 
 | 环境变量 | 说明 |
@@ -102,7 +107,7 @@ http-meta 子菜单:
 | `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
 | `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
 | `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单（默认 *） |
-| `SUB_STORE_BACKEND_DEFAULT_PROXY` | 默认代理（SOCKS5/HTTP/HTTPS） |
+| `SUB_STORE_BACKEND_DEFAULT_PROXY` | 默认代理（SOCKS5/HTTP/HTTPS）；shell 用户不走 VPN，需要代理时必须设置 |
 | `SUB_STORE_PUSH_SERVICE` | 推送服务（Bark / Telegram / PushPlus / shoutrrr） |
 | `SUB_STORE_MMDB_COUNTRY_PATH` / `SUB_STORE_MMDB_ASN_PATH` | MaxMind GeoLite2 数据库 |
 | `SUB_STORE_BACKEND_CUSTOM_NAME` / `SUB_STORE_BACKEND_CUSTOM_ICON` | 前端显示名称/图标 |
