@@ -18,29 +18,37 @@ load_config
 GETEVENT=$(command -v getevent 2>/dev/null || echo /system/bin/getevent)
 TIMEOUT_BIN=$(command -v timeout 2>/dev/null || echo "")
 
-# 读取一次音量键: 0=VOL+ 1=VOL- 2=超时 3=其它事件(忽略)
+# 读取音量键: 0=VOL+ 1=VOL- 2=超时
+# 内部消费 UP 等无关事件, 避免一次按键导致菜单重复刷新
 read_vol() {
   local line=""
-  if [ -n "$TIMEOUT_BIN" ]; then
-    line=$("$TIMEOUT_BIN" 5 "$GETEVENT" -qlc 1 2>/dev/null)
-  else
-    line=$("$GETEVENT" -qlc 1 2>/dev/null)
-  fi
-  case "$line" in
-    *KEY_VOLUMEUP*DOWN*)   return 0 ;;
-    *KEY_VOLUMEDOWN*DOWN*) return 1 ;;
-    "")                    return 2 ;;
-    *)                     return 3 ;;
-  esac
+  while :; do
+    if [ -n "$TIMEOUT_BIN" ]; then
+      line=$("$TIMEOUT_BIN" 5 "$GETEVENT" -qlc 1 2>/dev/null)
+    else
+      line=$("$GETEVENT" -qlc 1 2>/dev/null)
+    fi
+    case "$line" in
+      *KEY_VOLUMEUP*DOWN*)   return 0 ;;
+      *KEY_VOLUMEDOWN*DOWN*) return 1 ;;
+      "")                    return 2 ;;
+      *) : ;; # UP 等其它事件, 忽略并继续读取
+    esac
+  done
 }
 
 MENU_SEL=0
 
-# 显示菜单: $1=标题, 其余=选项, 高亮 MENU_SEL
-show_menu() {
+# 渲染完整界面 (清屏 + 标题横幅 + 菜单), 每次按键全量重绘, 实现真正 TUI 效果
+render() {
   local title=$1
   shift
   local i=0
+  printf '\033[2J\033[H'
+  echo "=============================================="
+  echo "  Sub-Store for Android - 执行菜单"
+  echo "  VOL+ 下一个选项    VOL- 确认选择"
+  echo "=============================================="
   echo ""
   echo "  --- $title ---"
   for opt in "$@"; do
@@ -61,7 +69,7 @@ pick() {
   local max=$(( $# - 1 ))
   local idle=0
   while true; do
-    show_menu "$title" "$@"
+    render "$title" "$@"
     read_vol
     case $? in
       0) # VOL+ 下一个
@@ -86,28 +94,25 @@ pick() {
   done
 }
 
-# ---------- 查看后端/前端地址 ----------
+# ---------- 查看后端/前端地址 (本机直连地址) ----------
 show_addresses() {
-  local host="${SUB_STORE_BACKEND_API_HOST:-127.0.0.1}"
-  local port="${SUB_STORE_BACKEND_API_PORT:-3000}"
   echo ""
   if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
-    # 合并模式: 仅输出一个地址 (前端带 ?api= 参数指向后端)
+    # 合并模式: 单端口, 前端需带 ?api= 指向后端路径 (SUB_STORE_FRONTEND_BACKEND_PATH)
     if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-      echo "http://$host:$port?api=http://$host:$port$SUB_STORE_FRONTEND_BACKEND_PATH"
+      echo "http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
     else
-      echo "http://$host:$port"
+      echo "http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
     fi
   else
-    echo "--- 后端地址 ---"
-    if [ "${SUB_STORE_BACKEND_PREFIX:-}" = "true" ] && [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-      echo "http://$host:$port$SUB_STORE_FRONTEND_BACKEND_PATH"
+    # 非合并: 后端也带路径前缀 (SUB_STORE_FRONTEND_BACKEND_PATH 属后端配置)
+    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
+      echo "后端: http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+      echo "前端: http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
     else
-      echo "http://$host:$port"
+      echo "后端: http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
+      echo "前端: http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}"
     fi
-    echo ""
-    echo "--- 前端地址 ---"
-    echo "http://${SUB_STORE_FRONTEND_HOST:-$host}:${SUB_STORE_FRONTEND_PORT:-3001}"
   fi
   echo ""
 }

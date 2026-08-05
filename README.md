@@ -64,8 +64,8 @@ http-meta 子菜单:
     只更新 mihomo 内核 (Prerelease-Alpha 预览版)
 ```
 
-- **查看后端/前端地址**：显示可复制的前后端访问地址；启用 `SUB_STORE_BACKEND_MERGE` 时仅输出合并地址
-  （`http://127.0.0.1:3000?api=http://127.0.0.1:3000/2cXaAxRGfddmGz2yx1wA`）
+- **查看后端/前端地址**：显示本机直连地址；启用 `SUB_STORE_BACKEND_MERGE` 或配置了 `SUB_STORE_FRONTEND_BACKEND_PATH` 时，
+  后端地址带路径前缀、前端带 `?api=` 参数（如 `http://127.0.0.1:3000?api=http://127.0.0.1:3000/2cXaAxRGfddmGz2yx1wA`）
 - VOL+ 切换到下一个选项，VOL- 确认
 - 5 分钟无按键自动退出
 
@@ -88,9 +88,9 @@ http-meta 子菜单:
 | --- | --- |
 | `SUB_STORE_BACKEND_API_HOST` | 后端监听地址，内部裸后端勿暴露；局域网用 `0.0.0.0` |
 | `SUB_STORE_BACKEND_API_PORT` | 后端端口（默认 3000） |
+| `SUB_STORE_FRONTEND_BACKEND_PATH` | 后端 API 路径前缀（属后端配置，合并/非合并后端都生效） |
 | `SUB_STORE_FRONTEND_HOST` / `SUB_STORE_FRONTEND_PORT` | 前端监听（默认 3001） |
-| `SUB_STORE_FRONTEND_BACKEND_PATH` | 前端访问后端的路径前缀 |
-| `SUB_STORE_BACKEND_MERGE` / `SUB_STORE_BACKEND_PREFIX` | 前后端合并为单端口 / 后端加路径前缀 |
+| `SUB_STORE_BACKEND_MERGE` | 前后端合并为单端口 |
 | `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
 | `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
 | `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单（默认 *） |
