@@ -167,31 +167,37 @@ toggle_autostart() {
   fi
 }
 
-# ---------- 主菜单 ----------
-pick \
-  "请选择操作" \
-  "浏览器打开直达地址" \
-  "启动 Sub-Store" \
-  "停止 Sub-Store" \
-  "重启 Sub-Store" \
-  "$AUTOSTART_LABEL" \
-  "更新选项 ..."
+# ---------- http-meta 子菜单 (返回上一级回到更新菜单) ----------
+http_meta_menu() {
+  while true; do
+    pick \
+      "更新 http-meta" \
+      "[默认] 全部更新 (js + tpl.yaml + mihomo 内核)" \
+      "只更新 http-meta (js + tpl.yaml)" \
+      "只更新 mihomo 内核 (稳定版)" \
+      "只更新 mihomo 内核 (Prerelease-Alpha 预览版)" \
+      "返回上一级"
+    case "$MENU_SEL" in
+      1) sh "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
+      2) sh "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
+      3) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
+      4) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
+      5) return ;;
+    esac
+  done
+}
 
-case "$MENU_SEL" in
-  1) open_address ;;
-  2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
-  3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
-  4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
-  5) toggle_autostart ;;
-  6)
-    # ---------- 更新子菜单 ----------
+# ---------- 更新子菜单 (返回上一级回到主菜单) ----------
+update_menu() {
+  while true; do
     pick \
       "更新选项" \
       "全部更新 (Sub-Store 前后端 + http-meta)" \
       "更新 Sub-Store 前后端" \
       "仅更新 Sub-Store 后端" \
       "仅更新 Sub-Store 前端" \
-      "更新 http-meta ..."
+      "更新 http-meta ..." \
+      "返回上一级"
     case "$MENU_SEL" in
       1)
         echo "== 开始: 全部更新 =="
@@ -214,24 +220,33 @@ case "$MENU_SEL" in
       4)
         sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1
         ;;
-      5)
-        # ---------- http-meta 子菜单 ----------
-        pick \
-          "更新 http-meta" \
-          "[默认] 全部更新 (js + tpl.yaml + mihomo 内核)" \
-          "只更新 http-meta (js + tpl.yaml)" \
-          "只更新 mihomo 内核 (稳定版)" \
-          "只更新 mihomo 内核 (Prerelease-Alpha 预览版)"
-        case "$MENU_SEL" in
-          1) sh "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
-          2) sh "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
-          3) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
-          4) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
-        esac
-        ;;
+      5) http_meta_menu ;;
+      6) return ;;
     esac
-    ;;
-esac
+  done
+}
+
+# ---------- 主菜单 (循环, 退出选项结束) ----------
+while true; do
+  pick \
+    "请选择操作" \
+    "浏览器打开直达地址" \
+    "启动 Sub-Store" \
+    "停止 Sub-Store" \
+    "重启 Sub-Store" \
+    "$AUTOSTART_LABEL" \
+    "更新选项 ..." \
+    "退出"
+  case "$MENU_SEL" in
+    1) open_address ;;
+    2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
+    3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
+    4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
+    5) toggle_autostart ;;
+    6) update_menu ;;
+    7) break ;;
+  esac
+done
 
 echo ""
 echo "完成。"
