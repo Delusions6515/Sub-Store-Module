@@ -9,7 +9,7 @@ on:
         type: choice
         options: [all, arm64-v8a, armeabi-v7a, x86_64, x86]
       version:
-        description: 版本号 (留空则使用 module.prop 中的版本)
+        description: 基础版本号 (留空则使用 module.prop 中的版本, 默认 1.0.0)
         default: ''
   push:
     tags: ['v*']
@@ -27,6 +27,8 @@ jobs:
         abi: ${{ (inputs.abi || 'all') == 'all' && fromJSON('["arm64-v8a","armeabi-v7a","x86_64","x86"]') || fromJSON(format('["{0}"]', inputs.abi || 'all')) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils

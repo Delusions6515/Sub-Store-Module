@@ -5,9 +5,13 @@
 # 可直接在 GitHub Actions 中运行。
 #
 # 用法:
-#   ./build.sh                 # 使用 module.prop 中的版本, 默认 arm64-v8a
-#   ./build.sh v2.1.0          # 指定版本构建 (versionCode 自动取当前时间戳)
-#   ./build.sh v2.1.0 out.zip  # 指定版本和输出路径
+#   ./build.sh                 # 使用 module.prop 中的基础版本 (默认 1.0.0), 默认 arm64-v8a
+#   ./build.sh 1.0.0           # 指定基础版本构建
+#   ./build.sh 1.0.0 out.zip   # 指定基础版本和输出路径
+#
+# 版本命名参考 ZygiskNext (不硬编码):
+#   version=1.0.0 (<git提交数>-<短hash>-release)
+#   versionCode=<git提交数>
 #
 # 环境变量:
 #   TARGET_ABI       目标 ABI: arm64-v8a(默认)|armeabi-v7a|x86_64|x86
@@ -177,12 +181,21 @@ else
   warn "获取 module_installer.sh 失败, 跳过 META-INF (管理器内安装不受影响)"
 fi
 
-# ---------- 4. 版本 ----------
-if [ -n "$VERSION" ]; then
-  VERSION_CODE="${VERSION_CODE:-$(date +%s)}"
-  sed -i "s/^version=.*/version=$VERSION/; s/^versionCode=.*/versionCode=$VERSION_CODE/" "$STAGE/module.prop"
-  info "版本: $VERSION (versionCode: $VERSION_CODE)"
+# ---------- 4. 版本 (参考 ZygiskNext: versionCode=git 提交数, version 附带短 hash) ----------
+VER_NAME="${VERSION:-$(sed -n 's/^version=//p' "$STAGE/module.prop" | awk '{print $1}')}"
+VER_NAME="${VER_NAME#v}"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  VER_CODE=$(git rev-list HEAD --count 2>/dev/null || echo 1)
+  VER_HASH=$(git rev-parse --verify --short HEAD 2>/dev/null || echo unknown)
+else
+  warn "不在 git 仓库中, versionCode 回退为 1"
+  VER_CODE=1
+  VER_HASH="nogit"
 fi
+BUILD_TYPE="${BUILD_TYPE:-release}"
+VERSION_LINE="$VER_NAME ($VER_CODE-$VER_HASH-$BUILD_TYPE)"
+sed -i "s/^version=.*/version=$VERSION_LINE/; s/^versionCode=.*/versionCode=$VER_CODE/" "$STAGE/module.prop"
+info "版本: $VERSION_LINE (versionCode: $VER_CODE)"
 
 # ---------- 5. 权限 ----------
 find "$STAGE" -type f \( -name '*.sh' -o -name 'update-binary' \) -exec chmod 755 {} +
@@ -194,7 +207,7 @@ mkdir -p "$OUT_DIR"
 if [ -z "$OUT_ZIP" ]; then
   SUFFIX=""
   [ "$TARGET_ABI" != "arm64-v8a" ] && SUFFIX="-${TARGET_ABI}"
-  OUT_ZIP="$OUT_DIR/sub-store-module-$(sed -n 's/^version=//p' "$STAGE/module.prop")${SUFFIX}.zip"
+  OUT_ZIP="$OUT_DIR/sub-store-module-${VER_NAME}-${VER_CODE}-${VER_HASH}-${BUILD_TYPE}${SUFFIX}.zip"
 fi
 rm -f "$OUT_ZIP"
 (cd "$STAGE" && zip -rq "$OUT_ZIP" .)
