@@ -57,18 +57,22 @@ start_bin() {
         if [ -x /system/bin/setpriv ] \
           && /system/bin/setpriv --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
           rp="/system/bin/setpriv --reuid 2000 --regid 2000 --init-groups"
+          log Info "降权: /system/bin/setpriv (toybox, --init-groups)"
         elif [ -x /system/bin/setpriv ] \
           && /system/bin/setpriv --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
           rp="/system/bin/setpriv --reuid 2000 --regid 2000"
+          log Info "降权: /system/bin/setpriv (toybox)"
         else
           local sp=""
           sp=$(command -v setpriv 2>/dev/null || true)
           if [ -n "$sp" ] \
             && "$sp" --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
             rp="$sp --reuid 2000 --regid 2000 --init-groups"
+            log Info "降权: $sp (setpriv, --init-groups)"
           elif [ -n "$sp" ] \
             && "$sp" --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
             rp="$sp --reuid 2000 --regid 2000"
+            log Info "降权: $sp (setpriv)"
           elif command -v su >/dev/null 2>&1; then
             su_mode=1
             log Warn "setpriv 不可用, 使用 su 2000 降权运行"
