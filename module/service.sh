@@ -13,7 +13,7 @@ SCRIPTS_DIR="$MODDIR/scripts"
   until [ "$(getprop sys.boot_completed)" = "1" ]; do
     sleep 3
   done
-  "$SCRIPTS_DIR/start.sh"
+  sh "$SCRIPTS_DIR/start.sh"
 ) &
 
 # 监控模块目录: 创建 disable 文件(禁用模块)时停止服务, 删除时重启

@@ -179,9 +179,9 @@ pick \
 
 case "$MENU_SEL" in
   1) open_address ;;
-  2) "$SCRIPTS_DIR/sub_store.service" start ;;
-  3) "$SCRIPTS_DIR/sub_store.service" stop ;;
-  4) "$SCRIPTS_DIR/sub_store.service" restart ;;
+  2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
+  3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
+  4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
   5) toggle_autostart ;;
   6)
     # ---------- 更新子菜单 ----------
@@ -195,24 +195,24 @@ case "$MENU_SEL" in
     case "$MENU_SEL" in
       1)
         echo "== 开始: 全部更新 =="
-        NO_RESTART=1 "$SCRIPTS_DIR/update_backend.sh"    || exit 1
-        NO_RESTART=1 "$SCRIPTS_DIR/update_frontend.sh"   || exit 1
-        NO_RESTART=1 "$SCRIPTS_DIR/update_http_meta.sh" all || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"    || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"   || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_http_meta.sh" all || exit 1
         restart_service
         echo "== 全部更新完成 =="
         ;;
       2)
         echo "== 开始: 更新 Sub-Store 前后端 =="
-        NO_RESTART=1 "$SCRIPTS_DIR/update_backend.sh"  || exit 1
-        NO_RESTART=1 "$SCRIPTS_DIR/update_frontend.sh" || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"  || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1
         restart_service
         echo "== 前后端更新完成 =="
         ;;
       3)
-        "$SCRIPTS_DIR/update_backend.sh" || exit 1
+        sh "$SCRIPTS_DIR/update_backend.sh" || exit 1
         ;;
       4)
-        "$SCRIPTS_DIR/update_frontend.sh" || exit 1
+        sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1
         ;;
       5)
         # ---------- http-meta 子菜单 ----------
@@ -223,10 +223,10 @@ case "$MENU_SEL" in
           "只更新 mihomo 内核 (稳定版)" \
           "只更新 mihomo 内核 (Prerelease-Alpha 预览版)"
         case "$MENU_SEL" in
-          1) "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
-          2) "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
-          3) "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
-          4) "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
+          1) sh "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
+          2) sh "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
+          3) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
+          4) sh "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
         esac
         ;;
     esac

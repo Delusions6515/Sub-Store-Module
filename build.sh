@@ -210,7 +210,7 @@ echo "updateJson=$UPDATE_JSON_BASE/update-${TARGET_ABI}.json" >> "$STAGE/module.
 info "updateJson: $UPDATE_JSON_BASE/update-${TARGET_ABI}.json"
 
 # ---------- 6. 权限 ----------
-find "$STAGE" -type f \( -name '*.sh' -o -name 'update-binary' \) -exec chmod 755 {} +
+find "$STAGE" -type f \( -name '*.sh' -o -name 'sub_store.service' -o -name 'sub_store.inotify' -o -name 'update-binary' \) -exec chmod 755 {} +
 find "$STAGE" -type d -exec chmod 755 {} +
 chmod 755 "$STAGE/sub_store/bin/sub_store_node" "$STAGE/sub_store/bin/http-meta/http-meta"
 

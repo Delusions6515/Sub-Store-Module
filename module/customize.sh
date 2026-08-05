@@ -85,7 +85,7 @@ chown -R 2000:2000 "$RUN_DIR" "$BIN_DIR/http-meta" 2>/dev/null || true
 # 配置文件含推送 token 等敏感信息, root 专属
 set_perm "$SCRIPTS_DIR/sub_store.config" 0 0 0600
 set_perm "$SCRIPTS_DIR/sub_store.env" 0 0 0600
-chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh 2>/dev/null
+chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh "$MODPATH"/scripts/sub_store.service "$MODPATH"/scripts/sub_store.inotify 2>/dev/null
 
 ui_print "- 安装完成"
 ui_print "- 重启后 Sub-Store 将自动启动 (低权限 shell 用户运行):"

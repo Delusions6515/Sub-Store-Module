@@ -18,8 +18,8 @@ mkdir -p "$run_path"
 
 if [ "$monitor_file" = "disable" ]; then
   case "$events" in
-    *c*) "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
-    *d*) "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+    *c*) sh "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+    *d*) sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
   esac
 fi
 

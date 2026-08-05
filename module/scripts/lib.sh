@@ -66,5 +66,5 @@ fetch_text() {  # $1=url
 }
 
 # ---------- 服务控制 ----------
-restart_service() { "$SCRIPTS_DIR/sub_store.service" restart; }
-stop_service()     { "$SCRIPTS_DIR/sub_store.service" stop; }
+restart_service() { sh "$SCRIPTS_DIR/sub_store.service" restart; }
+stop_service()     { sh "$SCRIPTS_DIR/sub_store.service" stop; }
