@@ -49,6 +49,23 @@ jobs:
           path: build/*.zip
           if-no-files-found: error
 
+      # 并行 job 共用同一 release tag, 直接 ncipollo create 会竞态 422
+      # (4 个 job 同时 GET 不到 -> 同时 POST, 后到者 already_exists)
+      # 先由 gh release create 抢建 (并发失败被 || true 消化), Upload 步骤只做更新上传
+      - name: Ensure release (防并行创建竞态)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG 已存在"
+          else
+            gh release create "$TAG" --title "Sub-Store for Android $TAG" --notes "构建记录见 Actions" 2>/dev/null \
+              && echo "创建 release $TAG" \
+              || echo "release 已被其他并行 job 创建"
+          fi
+
       - name: Upload release (tag push)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1.21.0
