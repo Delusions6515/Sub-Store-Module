@@ -16,7 +16,8 @@
 # 环境变量:
 #   TARGET_ABI       目标 ABI: arm64-v8a(默认)|armeabi-v7a|x86_64|x86
 #   NODE_REPO        node 二进制来源仓库 (默认 Delusions6515/node-android-build,
-#                    取该仓库 node-android-<arch> release 中的 node-android-<arch>-*.tar.xz)
+#                    始终使用官方最新 LTS: 从该仓库 node-android-<arch>-<major> release
+#                    取对应版本 tar.xz, 尚未构建时回退该大版本已有最高版本)
 #   NODE_DIST_URL    直接指定 node tar.xz 下载地址 (覆盖 NODE_REPO)
 #   NODE_BIN_PATH    直接指定本地 node 二进制文件 (覆盖上面两者, 本地调试用)
 #   OUT_DIR          输出目录 (默认 ./build)
@@ -73,18 +74,27 @@ fetch_node() {  # $1 = sub_store/bin 目录
     url="$NODE_DIST_URL"
   else
     local repo="${NODE_REPO:-Delusions6515/node-android-build}"
-    info "node: 从 $repo 查找最新 node-android-${NODE_ARCH}-* release ..."
-    local json ver rel
-    json=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases?per_page=100")
-    # 扫描全部 release tag, 取该架构版本号最大者 (release 按版本归档, 保留历史)
-    ver=$(echo "$json" | grep -oE '"tag_name": "node-android-'"${NODE_ARCH}"'-[0-9.]+"' \
-      | sed -E 's/.*"node-android-'"${NODE_ARCH}"'-([0-9.]+)".*/\1/' | sort -V | tail -n 1)
-    [ -n "$ver" ] || die "未找到 node-android-${NODE_ARCH}-* release (需要先构建 node-android-build 仓库)"
-    # 从该 release 的实际资产中取下载地址 (顺带验证产物存在)
-    rel=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases/tags/node-android-${NODE_ARCH}-${ver}")
-    url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${ver}"'\.tar\.xz"' \
+    local lts_ver major rel
+    # 始终使用官方最新 LTS: 从 nodejs.org index.json 解析当前 LTS 完整版本
+    info "node: 解析官方最新 LTS 版本 ..."
+    lts_ver=$(curl -fsSL --max-time 30 "https://nodejs.org/dist/index.json" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+l = [x for x in d if x.get("lts")]
+print(l[0]["version"].lstrip("v") if l else d[0]["version"].lstrip("v"))')
+    [ -n "$lts_ver" ] || die "无法解析官方最新 LTS 版本"
+    major="${lts_ver%%.*}"
+    info "node: 最新 LTS = $lts_ver, 从 $repo release node-android-${NODE_ARCH}-${major} 获取 ..."
+    rel=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases/tags/node-android-${NODE_ARCH}-${major}" || true)
+    # 优先取最新 LTS 版本对应的 asset; 尚未构建则回退该大版本已有最高版本
+    url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${lts_ver}"'\.tar\.xz"' \
       | head -n 1 | sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
-    [ -n "$url" ] || die "release node-android-${NODE_ARCH}-${ver} 中未找到 node-android-${NODE_ARCH}-${ver}.tar.xz 资产"
+    if [ -z "$url" ]; then
+      warn "node $lts_ver 尚未构建, 回退到 node-android-${NODE_ARCH}-${major} 中已有最高版本"
+      url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${major}"'\.[0-9]+\.[0-9]+\.tar\.xz"' \
+        | head -n 1 | sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
+    fi
+    [ -n "$url" ] || die "release node-android-${NODE_ARCH}-${major} 中未找到 node tar.xz 资产 (需要先构建 node-android-build 仓库)"
   fi
   ver=$(basename "$url" | sed -E 's/node-android-[a-z0-9]+-([0-9.]+)\.tar\.xz/\1/')
   info "node: 下载 $ver ($NODE_ARCH) ..."

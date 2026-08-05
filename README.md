@@ -163,8 +163,10 @@ NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
   版本名取最近 git tag（自动去 `v` 前缀），可用参数/`BUILD_TYPE` 覆盖
 
 - 组件来源：
-  - **node**：`NODE_REPO`（默认 `Delusions6515/node-android-build`）release 列表中
-    `node-android-<arch>-*` 版本号最大者（该仓库默认构建全部 4 架构且保留历史版本）；
+  - **node**：始终使用官方最新 LTS 版本——从 `nodejs.org` 解析当前 LTS（如 `24.19.0`），
+    再到 `NODE_REPO`（默认 `Delusions6515/node-android-build`）的
+    `node-android-<arch>-<major>` release 取对应版本 asset（该仓库 release 按大版本归档、
+    全部 4 架构、历史版本保留）；最新 LTS 尚未构建时回退该大版本已有最高版本并告警；
     可用 `NODE_DIST_URL` / `NODE_BIN_PATH` 覆盖
   - **后端**：`sub-store-org/Sub-Store` latest release
   - **前端**：`sub-store-org/Sub-Store-Front-End` latest release
