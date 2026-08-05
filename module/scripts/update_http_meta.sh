@@ -42,6 +42,7 @@ update_js() {
   }
   mv -f "$BIN_DIR/http-meta.bundle.js" "$BIN_DIR/http-meta.bundle.js.old" 2>/dev/null
   mv -f "$BIN_DIR/http-meta.bundle.js.new" "$BIN_DIR/http-meta.bundle.js"
+  chmod 644 "$BIN_DIR/http-meta.bundle.js" 2>/dev/null
   info "http-meta.bundle.js 更新完成"
   updated=1
   return 0
@@ -63,6 +64,7 @@ update_tpl() {
   }
   mv -f "$HM_DIR/tpl.yaml" "$HM_DIR/tpl.yaml.old" 2>/dev/null
   mv -f "$HM_DIR/tpl.yaml.new" "$HM_DIR/tpl.yaml"
+  chmod 644 "$HM_DIR/tpl.yaml" 2>/dev/null
   info "tpl.yaml 更新完成"
   updated=1
   return 0
@@ -166,6 +168,7 @@ update_kernel() {  # $1=stable|alpha
   chmod 755 "$KERNEL_FILE.new"
   mv -f "$KERNEL_FILE" "$KERNEL_FILE.old" 2>/dev/null
   mv -f "$KERNEL_FILE.new" "$KERNEL_FILE"
+  chmod 755 "$KERNEL_FILE" 2>/dev/null
   echo "$tag" > "$KERNEL_VER_FILE"
   info "mihomo 内核已更新: $tag"
   updated=1

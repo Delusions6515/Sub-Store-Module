@@ -48,6 +48,8 @@ fi
 
 mv -f "$BIN_DIR/sub-store.bundle.js" "$BIN_DIR/sub-store.bundle.js.old" 2>/dev/null
 mv -f "$TMP" "$BIN_DIR/sub-store.bundle.js"
+# 低权限用户 (shell, uid 2000) 需要可读; 下载文件可能因 umask 是 600
+chmod 644 "$BIN_DIR/sub-store.bundle.js" 2>/dev/null
 echo "$new" > "$BIN_DIR/backend_version"
 info "后端已更新到 $new"
 

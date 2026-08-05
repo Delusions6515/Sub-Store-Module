@@ -36,7 +36,10 @@ start_bin() {
 
   log Info "starting ${bin_name} service."
   ulimit -SHn 1000000
-  chmod 755 "$bin_path" 2>/dev/null
+  chmod 755 "$bin_path" "$http_meta_meta_path/http-meta" 2>/dev/null
+  # 更新脚本下载的文件可能因 umask 是 600 root, 低权限用户 (shell) 需可读
+  chmod 644 "$script_path" "$http_meta_script_path" "$http_meta_meta_path/tpl.yaml" 2>/dev/null
+  chmod -R a+rX "$sub_store_path/bin/frontend" "$http_meta_meta_path" 2>/dev/null
 
   mv "$run_path/${bin_name}.log" "$run_path/${bin_name}.log.bak" >/dev/null 2>&1
   mv "$run_path/${bin_name}_error.log" "$run_path/${bin_name}_error.log.bak" >/dev/null 2>&1

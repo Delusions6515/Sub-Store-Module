@@ -53,6 +53,8 @@ rm -rf "$BIN_DIR/frontend.old"
 mv "$BIN_DIR/frontend" "$BIN_DIR/frontend.old" 2>/dev/null
 mv "$TMP_DIR/dist" "$BIN_DIR/frontend"
 rm -rf "$TMP_DIR"
+# 低权限用户需要可读 (unzip 可能受 umask 影响)
+chmod -R a+rX "$BIN_DIR/frontend" 2>/dev/null
 echo "$new" > "$BIN_DIR/frontend_version"
 info "前端已更新到 $new"
 
