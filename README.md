@@ -6,7 +6,7 @@
 - 模块 ID 与旧版 `sub_store` 相同，但配置格式已变更（拆分为 `sub_store.config` + `sub_store.env`），
   **不支持直接覆盖安装 xream 原版模块**；升级前请先卸载旧版并迁移配置
 - 开发严格遵循官方指南：[Magisk Developer Guides](https://topjohnwu.github.io/Magisk/guides.html) / [KernelSU Module Guide](https://kernelsu.org/guide/module.html) / [APatch APM Guide](https://apatch.dev/apm-guide.html)
-- 脚本基于 xream 的 [Sub-Store for Magisk](https://github.com/xream/Sub-Store-for-Magisk) 重新开发（GPL-3.0）
+- 脚本基于 xream 的 [Sub-Store for Magisk, KernelSU & APatch](https://t.me/zhetengsha/1008) 重新开发（GPL-3.0）
 
 ## 功能
 
