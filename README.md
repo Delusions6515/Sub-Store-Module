@@ -40,6 +40,14 @@
 
 ```
 主菜单:
+  > 查看后端/前端地址
+    启动 Sub-Store
+    停止 Sub-Store
+    重启 Sub-Store
+    禁用/启用开机自启 (显示当前状态)
+    更新选项 ...
+
+更新子菜单:
   > 全部更新 (Sub-Store 前后端 + http-meta)
     更新 Sub-Store 前后端
     仅更新 Sub-Store 后端
@@ -53,6 +61,8 @@ http-meta 子菜单:
     只更新 mihomo 内核 (Prerelease-Alpha 预览版)
 ```
 
+- **查看后端/前端地址**：显示可复制的前后端访问地址；启用 `SUB_STORE_BACKEND_MERGE` 时仅输出合并地址
+  （`http://127.0.0.1:3000?api=http://127.0.0.1:3000/2cXaAxRGfddmGz2yx1wA`）
 - VOL+ 切换到下一个选项，VOL- 确认
 - 5 分钟无按键自动退出
 
