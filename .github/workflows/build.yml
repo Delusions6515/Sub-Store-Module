@@ -80,11 +80,13 @@ jobs:
           VER="${TAG#v}"
           CODE=$(git rev-list HEAD --count)
           SHA=$(git rev-parse --short HEAD)
+          # 生成到独立目录 json-out/, 避免与后续 gh-pages checkout 的 untracked 文件冲突
+          mkdir -p json-out
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
             SUFFIX=""
             [ "$abi" != "arm64-v8a" ] && SUFFIX="-${abi}"
             ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release${SUFFIX}.zip"
-            cat > "update-${abi}.json" <<JSON
+            cat > "json-out/update-${abi}.json" <<JSON
             {
               "version": "$TAG",
               "versionCode": $CODE,
@@ -93,7 +95,7 @@ jobs:
             }
           JSON
           done
-          ls -l update-*.json
+          ls -l json-out/
 
       - name: Publish to gh-pages branch
         env:
@@ -108,7 +110,7 @@ jobs:
             git checkout --orphan gh-pages
             git rm -rf --cached . >/dev/null 2>&1 || git rm -rf . >/dev/null 2>&1 || true
           fi
-          cp update-*.json .
+          cp json-out/update-*.json .
           git add update-*.json
           if git commit -m "update json: $TAG"; then
             git push origin gh-pages
