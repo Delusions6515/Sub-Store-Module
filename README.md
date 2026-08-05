@@ -1,10 +1,10 @@
-# Sub-Store for Android (Magisk / KernelSU 模块)
+# Sub-Store for Android (Magisk / KernelSU / APatch 模块)
 
 在 Android 上以系统级服务运行 [Sub-Store](https://github.com/sub-store-org/Sub-Store)（含 HTTP-META），
-并内置一键更新能力：在 Magisk / KernelSU 管理器中点击模块的 **[执行]** 按钮，即可用音量键选择更新项。
+并内置一键更新能力：在 Magisk / KernelSU / APatch 管理器中点击模块的 **[执行]** 按钮，即可用音量键选择更新项。
 
 - 模块 ID 与旧版 `sub_store` 相同，可直接覆盖升级 xream 原版模块，配置文件自动保留
-- 开发严格遵循官方指南：[Magisk Developer Guides](https://topjohnwu.github.io/Magisk/guides.html) / [KernelSU Module Guide](https://kernelsu.org/guide/module.html)
+- 开发严格遵循官方指南：[Magisk Developer Guides](https://topjohnwu.github.io/Magisk/guides.html) / [KernelSU Module Guide](https://kernelsu.org/guide/module.html) / [APatch APM Guide](https://apatch.dev/apm-guide.html)
 - 脚本基于 xream 的 [Sub-Store for Magisk](https://github.com/xream/Sub-Store-for-Magisk) 重新开发（GPL-3.0）
 
 ## 功能
@@ -23,8 +23,10 @@
 ## 安装
 
 1. 执行 `./build.sh` 构建模块 zip（或使用已构建产物）
-2. Magisk / KernelSU 管理器 → 模块 → 从本地安装
+2. Magisk / KernelSU / APatch 管理器 → 模块 → 从本地安装
 3. 重启设备
+
+> 管理器版本要求（执行按钮支持）：**Magisk >= 27008** / **KernelSU >= 10670** / **APatch >= 11039**
 
 启动后访问：
 

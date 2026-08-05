@@ -1,10 +1,11 @@
 #!/sbin/sh
 # ============================================================
 # Sub-Store for Android - 安装脚本
-# 由 Magisk / KernelSU 安装器在解压并设置默认权限后 source
+# 由 Magisk / KernelSU / APatch (APM) 安装器在解压并设置默认权限后 source
 # 参考:
 #   https://topjohnwu.github.io/Magisk/guides.html
 #   https://kernelsu.org/guide/module.html
+#   https://apatch.dev/apm-guide.html
 # ============================================================
 
 ui_print "*******************************"
@@ -17,9 +18,22 @@ if [ "$BOOTMODE" != "true" ]; then
   abort "! 请使用 Magisk/KernelSU 管理器安装本模块"
 fi
 
-# KernelSU 最低版本要求 (模块脚本 / action.sh 支持)
-if [ "$KSU" = "true" ] && [ "${KSU_VER_CODE:-0}" -lt 10670 ]; then
-  abort "! 请升级 KernelSU 后再安装 (需要 >= 10670)"
+# 执行按钮 (action.sh) 最低管理器版本要求:
+#   Magisk >= 27008 (canary 27008 首次加入 action.sh 支持)
+#   KernelSU >= 10670
+#   APatch >= 11039 (首次加入 action.sh 支持)
+if [ "${APATCH:-}" = "true" ]; then
+  if [ "${APATCH_VER_CODE:-0}" -lt 11039 ]; then
+    abort "! 请升级 APatch 后再安装 (执行按钮需要 APatch >= 11039)"
+  fi
+elif [ "${KSU:-}" = "true" ]; then
+  if [ "${KSU_VER_CODE:-0}" -lt 10670 ]; then
+    abort "! 请升级 KernelSU 后再安装 (执行按钮需要 >= 10670)"
+  fi
+else
+  if [ "${MAGISK_VER_CODE:-0}" -lt 27008 ]; then
+    abort "! 请升级 Magisk 后再安装 (执行按钮需要 Magisk >= 27008)"
+  fi
 fi
 
 DATA_DIR=/data/adb/sub_store
