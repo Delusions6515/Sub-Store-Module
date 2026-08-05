@@ -13,7 +13,7 @@ ui_print "  Sub-Store for Android"
 ui_print "  by Delusions6515"
 ui_print "*******************************"
 
-# 仅支持在管理器内安装 (需要 root 初始化 /data/adb/sub_store)
+# 仅支持在管理器内安装 (需要 root 初始化数据目录)
 if [ "$BOOTMODE" != "true" ]; then
   abort "! 请使用 Magisk/KernelSU 管理器安装本模块"
 fi
@@ -36,16 +36,19 @@ else
   fi
 fi
 
-DATA_DIR=/data/adb/sub_store
+DATA_DIR=/data/local/sub_store
 BIN_DIR=$DATA_DIR/bin
 SCRIPTS_DIR=$DATA_DIR/scripts
 RUN_DIR=$DATA_DIR/run
 
 ui_print "- 初始化运行时目录 $DATA_DIR"
 mkdir -p "$BIN_DIR" "$SCRIPTS_DIR" "$RUN_DIR"
+# 数据目录归属 shell (uid 2000), 700 权限: App 无法进入, 不暴露 root
+chmod 0700 "$DATA_DIR" 2>/dev/null || true
+chown 2000:2000 "$DATA_DIR" 2>/dev/null || true
 
 # 内置二进制: 仅在全新安装时拷贝
-# 升级时保留 /data/adb/sub_store/bin 中已被 [执行] 按钮更新过的版本
+# 升级时保留 $DATA_DIR/bin 中已被 [执行] 按钮更新过的版本
 if [ ! -f "$BIN_DIR/sub_store_node" ]; then
   ui_print "- 首次安装: 拷贝内置二进制"
   cp -rf "$MODPATH/sub_store/bin/." "$BIN_DIR/"
@@ -79,7 +82,7 @@ set_perm_recursive "$MODPATH" 0 0 0755 0644
 # 二进制目录: 文件 0644/可执行 0755, root 所有; shell 用户可读可执行
 set_perm_recursive "$BIN_DIR" 0 0 0755 0644
 chmod 755 "$BIN_DIR/sub_store_node" "$BIN_DIR/http-meta/http-meta" 2>/dev/null
-# 低权限运行 (默认 shell uid 2000): 运行目录与 http-meta 目录授权给该用户
+# 低权限运行 (默认 shell uid 2000): 数据目录归属 shell; 运行目录与 http-meta 目录授权写
 # (mihomo 需要写 geoip 数据库, node 需要写日志/数据)
 chown -R 2000:2000 "$RUN_DIR" "$BIN_DIR/http-meta" 2>/dev/null || true
 # 配置文件含推送 token 等敏感信息, root 专属

@@ -44,15 +44,34 @@ start_bin() {
   mv "$run_path/http-meta_error.log" "$run_path/http-meta_error.log.bak" >/dev/null 2>&1
 
   # 低权限运行: 默认以 shell(uid 2000) 运行 node, 不授予多余权限
-  # 需要访问的目录 (run/ 与 http-meta/) 由安装脚本授权给该用户
-  local rp=""
+  # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
+  # 降权: 优先系统 toybox setpriv (/system/bin/setpriv, 支持 --reuid, 不受 busybox 影响)
+  # 依次尝试带/不带 --init-groups; 再试 su 2000; 最后 root
+  local rp="" su_mode=0
   if [ -n "${run_as_user:-}" ]; then
     case "$run_as_user" in
       shell|2000)
-        if command -v setpriv >/dev/null 2>&1; then
-          rp="setpriv --reuid 2000 --regid 2000 --init-groups"
+        if [ -x /system/bin/setpriv ] \
+          && /system/bin/setpriv --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
+          rp="/system/bin/setpriv --reuid 2000 --regid 2000 --init-groups"
+        elif [ -x /system/bin/setpriv ] \
+          && /system/bin/setpriv --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
+          rp="/system/bin/setpriv --reuid 2000 --regid 2000"
         else
-          log Warn "未找到 setpriv, 回退以 root 运行"
+          local sp=""
+          sp=$(command -v setpriv 2>/dev/null || true)
+          if [ -n "$sp" ] \
+            && "$sp" --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
+            rp="$sp --reuid 2000 --regid 2000 --init-groups"
+          elif [ -n "$sp" ] \
+            && "$sp" --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
+            rp="$sp --reuid 2000 --regid 2000"
+          elif command -v su >/dev/null 2>&1; then
+            su_mode=1
+            log Warn "setpriv 不可用, 使用 su 2000 降权运行"
+          else
+            log Warn "setpriv/su 均不可用, 回退以 root 运行"
+          fi
         fi
         ;;
       root|"") : ;;
@@ -74,9 +93,14 @@ start_bin() {
       esac
     done < "$ENV_SOURCE"
   fi
-  nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
-
-  nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  # 启动 (su 模式经 su 2000 -c, 其余直接 nohup)
+  if [ "$su_mode" = "1" ]; then
+    su 2000 -c "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    su 2000 -c "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+  else
+    nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
+    nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  fi
 
   # 记录本次启动时间, 用于配置修改提醒
   touch "$run_path/.start_marker" 2>/dev/null

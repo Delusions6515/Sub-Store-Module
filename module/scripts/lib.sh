@@ -6,10 +6,10 @@
 # ============================================================
 
 # ---------- 配置加载 ----------
-# 优先使用用户配置 (/data/adb/sub_store/scripts/), 否则使用模块内置默认配置
+# 优先使用用户配置 (/data/local/sub_store/scripts/), 否则使用模块内置默认配置
 # sub_store.config 仅含模块特有配置; sub_store.env 为服务环境变量 (Docker 版一致)
 load_config() {
-  CONFIG_DIR=/data/adb/sub_store/scripts
+  CONFIG_DIR=/data/local/sub_store/scripts
   if [ -d "$CONFIG_DIR" ]; then
     CONFIG_FILE="$CONFIG_DIR/sub_store.config"
     ENV_FILE="$CONFIG_DIR/sub_store.env"

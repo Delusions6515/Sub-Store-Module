@@ -13,13 +13,13 @@
 | 功能 | 说明 |
 | --- | --- |
 | 开机自启 | `service.sh` 在系统启动完成后自动拉起 Sub-Store 后端 / 前端 / HTTP-META |
-| 低权限运行 | node 默认以 `shell` (uid 2000) 低权限运行，不授予多余权限 |
+| 低权限运行 | node 默认以 `shell` (uid 2000) 低权限运行；数据目录位于 `/data/local/sub_store`（shell 域原生可访问，不暴露 root），自动探测 `/system/bin/setpriv` (toybox) → 任意 `setpriv` → `su 2000`，全不可用时回退 root 并告警 |
 | 执行按钮 | 管理器内点击 **[执行]**，按音量键选择操作（音量下键 移动 / 音量上键 确认） |
 | 全部更新 | Sub-Store 前后端 + http-meta 一次搞定 |
 | 拆分更新 | 后端 / 前端 / http-meta 可单独更新 |
 | http-meta 子菜单 | 全部更新 / 仅 js+tpl.yaml / 仅 mihomo 内核(稳定版) / 仅 mihomo 内核(预览版) |
 | 开关联动 | 禁用模块自动停止服务，启用自动重启 |
-| 配置保留 | 升级模块不覆盖 `/data/adb/sub_store` 数据与配置 |
+| 配置保留 | 升级模块不覆盖 `/data/local/sub_store` 数据与配置 |
 
 ## 安装
 
@@ -72,7 +72,7 @@ http-meta 子菜单:
 
 ## 配置
 
-配置文件位于 `/data/adb/sub_store/scripts/`（修改后执行
+配置文件位于 `/data/local/sub_store/scripts/`（修改后执行
 `su -c "sh /data/adb/modules/sub_store/scripts/sub_store.service restart"`）：
 
 - **`sub_store.config`**：仅模块特有配置（路径、运行用户等）
@@ -123,11 +123,11 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_frontend.sh"         # 更�
 su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更新 http-meta
 ```
 
-> 在 `/data/adb/sub_store/manual` 创建空文件可禁止开机自启（手动控制）。
+> 在 `/data/local/sub_store/manual` 创建空文件可禁止开机自启（手动控制）。
 
 ## 卸载
 
-管理器删除模块即可：服务会自动停止，`/data/adb/sub_store` 数据保留（如需彻底删除请手动删除该目录）。
+管理器删除模块即可：服务会自动停止，`/data/local/sub_store` 数据保留（如需彻底删除请手动删除该目录）。
 
 ## 构建
 
