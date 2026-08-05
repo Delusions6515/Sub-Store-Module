@@ -13,7 +13,7 @@
 | --- | --- |
 | 开机自启 | `service.sh` 在系统启动完成后自动拉起 Sub-Store 后端 / 前端 / HTTP-META |
 | 低权限运行 | node 默认以 `shell` (uid 2000) 低权限运行，不授予多余权限 |
-| 执行按钮 | 管理器内点击 **[执行]**，按音量键选择操作（VOL+ 下一个 / VOL- 确认） |
+| 执行按钮 | 管理器内点击 **[执行]**，按音量键选择操作（音量下键 移动 / 音量上键 确认） |
 | 全部更新 | Sub-Store 前后端 + http-meta 一次搞定 |
 | 拆分更新 | 后端 / 前端 / http-meta 可单独更新 |
 | http-meta 子菜单 | 全部更新 / 仅 js+tpl.yaml / 仅 mihomo 内核(稳定版) / 仅 mihomo 内核(预览版) |
@@ -42,8 +42,8 @@
 管理器 → 模块 → Sub-Store for Android → **[执行]**
 
 ```
-主菜单:
-  > 查看后端/前端地址
+主菜单 (前后端直达地址常驻显示在顶部):
+  > 浏览器打开直达地址
     启动 Sub-Store
     停止 Sub-Store
     重启 Sub-Store
@@ -64,9 +64,9 @@ http-meta 子菜单:
     只更新 mihomo 内核 (Prerelease-Alpha 预览版)
 ```
 
-- **查看后端/前端地址**：显示本机直连地址；启用 `SUB_STORE_BACKEND_MERGE` 或配置了 `SUB_STORE_FRONTEND_BACKEND_PATH` 时，
-  后端地址带路径前缀、前端带 `?api=` 参数（如 `http://127.0.0.1:3000?api=http://127.0.0.1:3000/2cXaAxRGfddmGz2yx1wA`）
-- VOL+ 切换到下一个选项，VOL- 确认
+- **直达地址**：TUI 顶部常驻显示前后端本机地址（合并模式显示单端口；配置了 `SUB_STORE_FRONTEND_BACKEND_PATH` 时后端带路径前缀、前端带 `?api=` 参数）
+- **浏览器打开直达地址**：调用默认浏览器打开直达地址（非合并模式打开前端），解决终端内不可复制的问题
+- 音量下键 切换到下一个选项，音量上键 确认
 - 5 分钟无按键自动退出
 
 ## 配置
