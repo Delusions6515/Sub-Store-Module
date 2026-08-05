@@ -111,15 +111,15 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 ### 本地构建
 
 ```sh
-./build.sh                    # 基础版本 1.0.0 (module.prop), arm64-v8a
-./build.sh 1.0.0              # 指定基础版本
+./build.sh                    # 版本名取最近 git tag (如 v1.0.0), arm64-v8a
+./build.sh 1.0.0              # 指定版本名覆盖 tag
 TARGET_ABI=armeabi-v7a ./build.sh 1.0.0   # 指定 ABI
 NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
 ```
 
-- 版本命名参考 ZygiskNext（不硬编码）：构建时自动生成
-  `version=1.0.0 (<git提交数>-<短hash>-release)`、`versionCode=<git提交数>`；
-  非 git 环境时 versionCode 回退为 1，可用 `BUILD_TYPE` 环境变量覆盖 release/debug
+- 版本命名参考 ZygiskNext（`module.prop` 中 `version`/`versionCode` 为占位符，不硬编码）：
+  构建时自动生成 `version=1.0.0 (<git提交数>-<短hash>-release)`、`versionCode=<git提交数>`；
+  版本名取最近 git tag（自动去 `v` 前缀），可用参数/`BUILD_TYPE` 覆盖
 
 - 组件来源：
   - **node**：`NODE_REPO`（默认 `Delusions6515/node-android-build`）release 列表中

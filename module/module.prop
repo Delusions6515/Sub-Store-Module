@@ -1,6 +1,6 @@
 id=sub_store
 name=Sub-Store for Android
-version=1.0.0
-versionCode=1
+version=${versionName}
+versionCode=${versionCode}
 author=Delusions6515
 description=Advanced Subscription Manager with HTTP-META. 点击 [执行] 按钮, 按音量键选择更新

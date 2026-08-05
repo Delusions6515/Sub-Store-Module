@@ -5,11 +5,11 @@
 # 可直接在 GitHub Actions 中运行。
 #
 # 用法:
-#   ./build.sh                 # 使用 module.prop 中的基础版本 (默认 1.0.0), 默认 arm64-v8a
-#   ./build.sh 1.0.0           # 指定基础版本构建
-#   ./build.sh 1.0.0 out.zip   # 指定基础版本和输出路径
+#   ./build.sh                 # 版本名取最近 git tag (如 v1.0.0), 默认 arm64-v8a
+#   ./build.sh 1.1.0           # 指定版本名覆盖 tag
+#   ./build.sh 1.1.0 out.zip   # 指定版本名和输出路径
 #
-# 版本命名参考 ZygiskNext (不硬编码):
+# 版本命名参考 ZygiskNext (module.prop 中为占位符, 不硬编码):
 #   version=1.0.0 (<git提交数>-<短hash>-release)
 #   versionCode=<git提交数>
 #
@@ -182,7 +182,13 @@ else
 fi
 
 # ---------- 4. 版本 (参考 ZygiskNext: versionCode=git 提交数, version 附带短 hash) ----------
-VER_NAME="${VERSION:-$(sed -n 's/^version=//p' "$STAGE/module.prop" | awk '{print $1}')}"
+# 版本名: 优先参数/环境变量, 其次取最近 git tag (自动去 v 前缀), 最后回退 dev
+VER_NAME="${VERSION:-}"
+if [ -z "$VER_NAME" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  VER_NAME=$(git describe --tags --exact-match HEAD 2>/dev/null \
+    || git describe --tags --abbrev=0 2>/dev/null || true)
+fi
+VER_NAME="${VER_NAME:-dev}"
 VER_NAME="${VER_NAME#v}"
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   VER_CODE=$(git rev-list HEAD --count 2>/dev/null || echo 1)
