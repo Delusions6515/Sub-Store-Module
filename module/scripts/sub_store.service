@@ -73,9 +73,11 @@ start_bin() {
             && "$sp" --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
             rp="$sp --reuid 2000 --regid 2000"
             log Info "降权: $sp (setpriv)"
-          elif command -v su >/dev/null 2>&1; then
+          elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
+            # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 UID 参数,
+            # 但 command -v 存在 ≠ 可用, 实测成功才采用 (与 setpriv 同原则)
             su_mode=1
-            log Warn "setpriv 不可用, 使用 su 2000 降权运行"
+            log Info "降权: su 2000"
           else
             log Warn "setpriv/su 均不可用, 回退以 root 运行"
           fi
