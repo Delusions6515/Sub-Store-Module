@@ -20,6 +20,7 @@
 | http-meta 子菜单 | 全部更新 / 仅 js+tpl.yaml / 仅 mihomo 内核(稳定版) / 仅 mihomo 内核(预览版) |
 | 开关联动 | 禁用模块自动停止服务，启用自动重启 |
 | 配置保留 | 升级模块不覆盖 `/data/local/sub_store` 数据与配置 |
+| 合并端口 | 默认开启（与官方 Docker 一致）；后端按**非空即合并**判断，设 `"false"` 无效；分离模式=注释该行 |
 
 ## 安装
 
@@ -37,11 +38,13 @@
 > ⚠️ **v2.0.0 破坏性变更**：数据/配置目录从 `/data/adb/sub_store` 迁移到 `/data/local/sub_store`
 > （低权限用户原生可访问且不暴露 root）。v1.x 升级需手动迁移旧数据，或卸载后全新安装。
 
-启动后访问：
+启动后访问（默认**合并模式**，单端口）：
 
-- 前端：<http://127.0.0.1:3001>
-- 后端：<http://127.0.0.1:3000>
+- Sub-Store：<http://127.0.0.1:3000>
 - HTTP-META：<http://127.0.0.1:9876>
+
+> 分离模式（注释 `sub_store.env` 里的 `SUB_STORE_BACKEND_MERGE` 后）：
+> 前端 <http://127.0.0.1:3001> / 后端 <http://127.0.0.1:3000>
 
 局域网访问：修改 `sub_store.env` 中的 `SUB_STORE_BACKEND_API_HOST` 为 `0.0.0.0` 后重启服务。
 
@@ -75,7 +78,7 @@ http-meta 子菜单:
     返回上一级
 ```
 
-- **直达地址**：TUI 顶部常驻显示前后端本机地址（合并模式显示单端口；配置了 `SUB_STORE_FRONTEND_BACKEND_PATH` 时后端带路径前缀、前端带 `?api=` 参数）
+- **直达地址**：TUI 顶部常驻显示前后端本机地址（合并模式显示单端口；配置了 `SUB_STORE_FRONTEND_BACKEND_PATH` 时，分离模式前端 `?api=` 指向前端端口+前缀、后端直连无前缀）
 - **浏览器打开直达地址**：调用默认浏览器打开直达地址（非合并模式打开前端），解决终端内不可复制的问题
 - 音量下键 切换到下一个选项，音量上键 确认
 - 操作完成后返回主菜单，选择**退出**结束；子菜单可用**返回上一级**回退
@@ -105,9 +108,9 @@ http-meta 子菜单:
 | --- | --- |
 | `SUB_STORE_BACKEND_API_HOST` | 后端监听地址，内部裸后端勿暴露；局域网用 `0.0.0.0` |
 | `SUB_STORE_BACKEND_API_PORT` | 后端端口（默认 3000） |
-| `SUB_STORE_FRONTEND_BACKEND_PATH` | 后端 API 路径前缀（属后端配置，合并/非合并后端都生效） |
+| `SUB_STORE_FRONTEND_BACKEND_PATH` | API 路径前缀（合并模式挂后端；分离模式由前端代理使用，`?api=` 指向前端端口+前缀） |
 | `SUB_STORE_FRONTEND_HOST` / `SUB_STORE_FRONTEND_PORT` | 前端监听（默认 3001） |
-| `SUB_STORE_BACKEND_MERGE` | 前后端合并为单端口 |
+| `SUB_STORE_BACKEND_MERGE` | 前后端合并为单端口（**默认 `true`**） |
 | `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
 | `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
 | `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单（默认 *） |

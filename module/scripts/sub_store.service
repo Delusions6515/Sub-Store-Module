@@ -98,7 +98,15 @@ start_bin() {
     while IFS='=' read -r _env_k _env_v; do
       case "$_env_k" in
         \#*|"") continue ;;                       # 注释/空行
-        [A-Za-z_]*[A-Za-z0-9_]*) export "$_env_k" ;; # 有效变量名才导出
+        [A-Za-z_]*[A-Za-z0-9_]*)
+          # 布尔归一 (后端 truthy 判断): SUB_STORE_BACKEND_MERGE 非 "true" 不导出
+          # (变量留在 shell 但 node 看不到, 与 xream 模块 true-only 行为一致,
+          #  设 false/其它值 = 关闭合并, 不会被后端的非空即合并误判)
+          if [ "$_env_k" = "SUB_STORE_BACKEND_MERGE" ]; then
+            _env_v=$(printf '%s' "$_env_v" | tr -d '"')
+            [ "$_env_v" = "true" ] || continue
+          fi
+          export "$_env_k" ;;
       esac
     done < "$ENV_SOURCE"
   fi

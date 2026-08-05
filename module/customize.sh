@@ -120,5 +120,5 @@ chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh "$MODPATH"/scripts/sub_store
 
 ui_print "- 安装完成"
 ui_print "- 重启后 Sub-Store 将自动启动 (低权限 shell 用户运行):"
-ui_print "  http://127.0.0.1:3001  (后端 :3000, HTTP-META :9876)"
+ui_print "  http://127.0.0.1:3000  (默认合并端口, HTTP-META :9876)"
 ui_print "- 管理器内点击 [执行] 可按音量键选择更新"
