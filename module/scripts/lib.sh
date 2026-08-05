@@ -6,18 +6,30 @@
 # ============================================================
 
 # ---------- 配置加载 ----------
-# 优先使用用户配置 (/data/adb/sub_store/scripts/sub_store.config)
-# 否则使用模块内置默认配置
+# 优先使用用户配置 (/data/adb/sub_store/scripts/), 否则使用模块内置默认配置
+# sub_store.config 仅含模块特有配置; sub_store.env 为服务环境变量 (Docker 版一致)
 load_config() {
-  CONFIG_FILE=/data/adb/sub_store/scripts/sub_store.config
-  if [ ! -f "$CONFIG_FILE" ]; then
+  CONFIG_DIR=/data/adb/sub_store/scripts
+  if [ -d "$CONFIG_DIR" ]; then
+    CONFIG_FILE="$CONFIG_DIR/sub_store.config"
+    ENV_FILE="$CONFIG_DIR/sub_store.env"
+  else
     CONFIG_FILE="$SCRIPTS_DIR/sub_store.config"
+    ENV_FILE="$SCRIPTS_DIR/sub_store.env"
   fi
   # shellcheck disable=SC1090
   . "$CONFIG_FILE" 2>/dev/null || {
     echo "[Error] 配置文件加载失败: $CONFIG_FILE"
     exit 1
   }
+  # 环境变量文件缺失时回退模块内置默认 (升级前旧配置无此文件)
+  if [ -f "$ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    . "$ENV_FILE" 2>/dev/null
+  elif [ -f "$SCRIPTS_DIR/sub_store.env" ]; then
+    # shellcheck disable=SC1090
+    . "$SCRIPTS_DIR/sub_store.env" 2>/dev/null
+  fi
 }
 
 # ---------- 输出 ----------

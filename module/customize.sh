@@ -46,6 +46,10 @@ if [ ! -f "$SCRIPTS_DIR/sub_store.config" ]; then
   ui_print "- 写入默认配置文件 sub_store.config"
   cp -f "$MODPATH/scripts/sub_store.config" "$SCRIPTS_DIR/sub_store.config"
 fi
+if [ ! -f "$SCRIPTS_DIR/sub_store.env" ]; then
+  ui_print "- 写入默认环境变量文件 sub_store.env"
+  cp -f "$MODPATH/scripts/sub_store.env" "$SCRIPTS_DIR/sub_store.env"
+fi
 
 # 清理旧版 (xream v1) 遗留的开机脚本, 避免与新模块的 service.sh 重复启动
 rm -f /data/adb/service.d/sub_store_service.sh
@@ -66,6 +70,7 @@ chmod 755 "$BIN_DIR/sub_store_node" "$BIN_DIR/http-meta/http-meta" 2>/dev/null
 chown -R 2000:2000 "$RUN_DIR" "$BIN_DIR/http-meta" 2>/dev/null || true
 # 配置文件含推送 token 等敏感信息, root 专属
 set_perm "$SCRIPTS_DIR/sub_store.config" 0 0 0600
+set_perm "$SCRIPTS_DIR/sub_store.env" 0 0 0600
 chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh 2>/dev/null
 
 ui_print "- 安装完成"

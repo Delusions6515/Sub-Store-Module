@@ -58,30 +58,41 @@ http-meta 子菜单:
 
 ## 配置
 
-配置文件：`/data/adb/sub_store/scripts/sub_store.config`（修改后执行
-`su -c "sh /data/adb/modules/sub_store/scripts/sub_store.service restart"`）
+配置文件位于 `/data/adb/sub_store/scripts/`（修改后执行
+`su -c "sh /data/adb/modules/sub_store/scripts/sub_store.service restart"`）：
 
-环境变量对应 Docker 版（[xream/sub-store](https://hub.docker.com/r/xream/sub-store)）：
+- **`sub_store.config`**：仅模块特有配置（路径、运行用户等）
+- **`sub_store.env`**：服务环境变量，全大写命名、与 Docker 版一致
+  （内容与注释参考 [xream/sub-store](https://hub.docker.com/r/xream/sub-store) Docker 介绍）
 
-| 本模块配置变量 | 对应 Docker 环境变量 | 说明 |
-| --- | --- | --- |
-| `sub_store_backend_host` | `SUB_STORE_BACKEND_API_HOST` | 后端监听地址，局域网用 `0.0.0.0` |
-| `sub_store_backend_port` | `SUB_STORE_BACKEND_API_PORT` | 后端端口（默认 3000） |
-| `sub_store_frontend_host` / `_port` | `SUB_STORE_FRONTEND_HOST` / `SUB_STORE_FRONTEND_PORT` | 前端监听（默认 3001） |
-| `sub_store_frontend_backend_path` | `SUB_STORE_FRONTEND_BACKEND_PATH` | 前端访问后端的路径前缀 |
-| `sub_store_backend_merge` | `SUB_STORE_BACKEND_MERGE` | 前后端合并为单端口 |
-| `sub_store_body_json_limit` | `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
-| `sub_store_backend_push_service` | `SUB_STORE_PUSH_SERVICE` | 推送服务（Bark / Telegram / PushPlus / shoutrrr） |
-| `sub_store_mmdb_country_path` / `_asn_path` | `SUB_STORE_MMDB_COUNTRY_PATH` / `SUB_STORE_MMDB_ASN_PATH` | MaxMind GeoLite2 数据库 |
-| `sub_store_max_header_size` | `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
-| `sub_store_cors_allowed_origins` | `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单 |
-| `sub_store_backend_default_proxy` | `SUB_STORE_BACKEND_DEFAULT_PROXY` | 默认代理（SOCKS5/HTTP/HTTPS） |
-| `sub_store_backend_custom_name` / `_icon` | `SUB_STORE_BACKEND_CUSTOM_NAME` / `SUB_STORE_BACKEND_CUSTOM_ICON` | 前端显示名称/图标 |
-| `sub_store_x_powered_by` | `SUB_STORE_X_POWERED_BY` | 自定义 `X-Powered-By` 响应头 |
-| `http_meta_host` / `http_meta_port` | `HOST` / `PORT` | HTTP-META 监听（默认 9876） |
-| `http_meta_body_json_limit` | `BODY_JSON_LIMIT` | HTTP-META Body 限制 |
-| `http_meta_disable_auto_clean` | `META_DISABLE_AUTO_CLEAN` | 调试：保留核心运行日志/配置 |
-| `run_as_user` | - | 运行用户：`shell`(默认, uid 2000 低权限) / 置空=root |
+`sub_store.env` 中的环境变量（对应 Docker 版）：
+
+| 环境变量 | 说明 |
+| --- | --- |
+| `SUB_STORE_BACKEND_API_HOST` | 后端监听地址，内部裸后端勿暴露；局域网用 `0.0.0.0` |
+| `SUB_STORE_BACKEND_API_PORT` | 后端端口（默认 3000） |
+| `SUB_STORE_FRONTEND_HOST` / `SUB_STORE_FRONTEND_PORT` | 前端监听（默认 3001） |
+| `SUB_STORE_FRONTEND_BACKEND_PATH` | 前端访问后端的路径前缀 |
+| `SUB_STORE_BACKEND_MERGE` / `SUB_STORE_BACKEND_PREFIX` | 前后端合并为单端口 / 后端加路径前缀 |
+| `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
+| `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
+| `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单（默认 *） |
+| `SUB_STORE_BACKEND_DEFAULT_PROXY` | 默认代理（SOCKS5/HTTP/HTTPS） |
+| `SUB_STORE_PUSH_SERVICE` | 推送服务（Bark / Telegram / PushPlus / shoutrrr） |
+| `SUB_STORE_MMDB_COUNTRY_PATH` / `SUB_STORE_MMDB_ASN_PATH` | MaxMind GeoLite2 数据库 |
+| `SUB_STORE_BACKEND_CUSTOM_NAME` / `SUB_STORE_BACKEND_CUSTOM_ICON` | 前端显示名称/图标 |
+| `SUB_STORE_X_POWERED_BY` | 自定义 `X-Powered-By` 响应头 |
+| `HOST` / `PORT` | HTTP-META 监听（默认 9876） |
+| `BODY_JSON_LIMIT` | HTTP-META Body 限制 |
+| `META_FOLDER` / `META_TEMP_FOLDER` | HTTP-META 数据/临时文件夹 |
+| `META_DISABLE_AUTO_CLEAN` | 调试：保留核心运行日志/配置 |
+
+`sub_store.config` 中的模块配置：
+
+| 配置变量 | 说明 |
+| --- | --- |
+| `sub_store_path` 等路径变量 | 模块路径（一般不需要修改） |
+| `run_as_user` | 运行用户：`shell`(默认, uid 2000 低权限) / 置空=root |
 
 ## 手动操作
 
@@ -145,7 +156,8 @@ Sub-Store-Module/
 │   ├── uninstall.sh          # 卸载脚本
 │   └── scripts/
 │       ├── lib.sh            # 公共函数库
-│       ├── sub_store.config  # 默认配置 (对应 Docker 环境变量)
+│       ├── sub_store.config  # 默认配置 (仅模块特有: 路径/运行用户)
+│       ├── sub_store.env     # 默认环境变量 (对应 Docker 版, 全大写)
 │       ├── sub_store.service # 服务控制 start/stop/restart
 │       ├── sub_store.inotify # 模块开关监控
 │       ├── start.sh          # 开机启动入口
