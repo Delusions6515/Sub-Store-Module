@@ -61,3 +61,52 @@ jobs:
           body: |
             Sub-Store for Android 模块
             构建记录: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  # 发布 update JSON (各架构分开), 供管理器检测更新
+  # module.prop 的 updateJson 指向 gh-pages 分支上的 update-<abi>.json
+  update-json:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate update JSON (各架构分开)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VER="${TAG#v}"
+          CODE=$(git rev-list HEAD --count)
+          SHA=$(git rev-parse --short HEAD)
+          for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+            SUFFIX=""
+            [ "$abi" != "arm64-v8a" ] && SUFFIX="-${abi}"
+            ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release${SUFFIX}.zip"
+            cat > "update-${abi}.json" <<JSON
+            {
+              "version": "$TAG",
+              "versionCode": $CODE,
+              "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/$TAG/$ZIP",
+              "changelog": "https://github.com/Delusions6515/Sub-Store-Module/releases/tag/$TAG"
+            }
+          JSON
+          done
+          ls -l update-*.json
+
+      - name: Publish to gh-pages branch
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          git config user.name "Delusions6515"
+          git config user.email "213381333+Delusions6515@users.noreply.github.com"
+          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          git checkout gh-pages
+          cp update-*.json .
+          git add update-*.json
+          if git commit -m "update json: $TAG"; then
+            git push origin gh-pages
+          else
+            echo "update json 无变化, 跳过推送"
+          fi

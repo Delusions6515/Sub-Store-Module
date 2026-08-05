@@ -203,12 +203,18 @@ VERSION_LINE="$VER_NAME ($VER_CODE-$VER_HASH-$BUILD_TYPE)"
 sed -i "s/^version=.*/version=$VERSION_LINE/; s/^versionCode=.*/versionCode=$VER_CODE/" "$STAGE/module.prop"
 info "版本: $VERSION_LINE (versionCode: $VER_CODE)"
 
-# ---------- 5. 权限 ----------
+# ---------- 5. updateJson (各架构分开, 由 workflow 发布到 gh-pages 分支) ----------
+UPDATE_JSON_BASE="${UPDATE_JSON_BASE:-https://raw.githubusercontent.com/Delusions6515/Sub-Store-Module/gh-pages}"
+sed -i "/^updateJson=/d" "$STAGE/module.prop"
+echo "updateJson=$UPDATE_JSON_BASE/update-${TARGET_ABI}.json" >> "$STAGE/module.prop"
+info "updateJson: $UPDATE_JSON_BASE/update-${TARGET_ABI}.json"
+
+# ---------- 6. 权限 ----------
 find "$STAGE" -type f \( -name '*.sh' -o -name 'update-binary' \) -exec chmod 755 {} +
 find "$STAGE" -type d -exec chmod 755 {} +
 chmod 755 "$STAGE/sub_store/bin/sub_store_node" "$STAGE/sub_store/bin/http-meta/http-meta"
 
-# ---------- 6. 打包 ----------
+# ---------- 7. 打包 ----------
 mkdir -p "$OUT_DIR"
 if [ -z "$OUT_ZIP" ]; then
   SUFFIX=""
