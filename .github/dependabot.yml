@@ -1,0 +1,14 @@
+# Dependabot 自动更新 GitHub Actions 依赖
+# 检测到新版本时自动提 PR, 合并与否由维护者决定
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
