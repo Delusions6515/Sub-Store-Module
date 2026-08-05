@@ -7,6 +7,7 @@
 
 SCRIPTS_DIR=$(dirname "$0")
 . "$SCRIPTS_DIR/lib.sh"
+SERVICE_STARTING=1   # 启动流程不触发配置修改提醒 (本次启动即应用新配置)
 load_config
 
 export PATH="/data/adb/magisk:/data/adb/ksu/bin:/data/adb/ap/bin:$PATH"
@@ -59,6 +60,11 @@ start_bin() {
     esac
   fi
 
+  # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
+  if [ "${run_as_user:-}" = "shell" ] || [ "${run_as_user:-}" = "2000" ]; then
+    chown -R 2000:2000 "$run_path" "$http_meta_meta_path" 2>/dev/null || true
+  fi
+
   # 导入 sub_store.env 中定义的全部环境变量 (对应 Docker 版, 新增变量无需改脚本)
   if [ -n "${ENV_SOURCE:-}" ] && [ -f "$ENV_SOURCE" ]; then
     while IFS='=' read -r _env_k _env_v; do
@@ -71,6 +77,9 @@ start_bin() {
   nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
 
   nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+
+  # 记录本次启动时间, 用于配置修改提醒
+  touch "$run_path/.start_marker" 2>/dev/null
 
   return 0
 }

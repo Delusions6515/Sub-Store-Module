@@ -27,6 +27,16 @@ load_config() {
   ENV_SOURCE="$ENV_FILE"
   [ -f "$ENV_SOURCE" ] || ENV_SOURCE="$SCRIPTS_DIR/sub_store.env"
   [ -f "$ENV_SOURCE" ] && . "$ENV_SOURCE" 2>/dev/null
+
+  # 配置修改提醒: 用户改了配置但服务未重启时, 提示手动重启 (服务启动流程跳过)
+  if [ "${SERVICE_STARTING:-}" != "1" ] && [ -d "$CONFIG_DIR" ] \
+    && [ -n "${run_path:-}" ] && [ -f "$run_path/.start_marker" ]; then
+    if [ "$CONFIG_FILE" -nt "$run_path/.start_marker" ] \
+      || [ "$ENV_SOURCE" -nt "$run_path/.start_marker" ]; then
+      warn "检测到配置已修改, 但服务未重启, 当前运行的是旧配置"
+      warn "请执行: su -c \"sh /data/adb/modules/sub_store/scripts/sub_store.service restart\""
+    fi
+  fi
 }
 
 # ---------- 输出 ----------

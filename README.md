@@ -78,6 +78,9 @@ http-meta 子菜单:
   （内容与注释参考 [xream/sub-store](https://hub.docker.com/r/xream/sub-store) Docker 介绍）；
   **文件中定义的所有变量都会在服务启动时导入进程**，新增 Docker 环境变量直接加进文件即可，无需改脚本
 
+修改配置后请**重启服务生效**；服务启动时会自动修正低权限用户（`run/`、`http-meta/`）的目录所有权，
+若配置已修改但未重启，运行更新等操作时会收到提醒。
+
 `sub_store.env` 中的环境变量（对应 Docker 版）：
 
 | 环境变量 | 说明 |
