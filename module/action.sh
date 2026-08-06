@@ -10,13 +10,17 @@
 #   5 分钟无按键自动退出
 # ============================================================
 
+# ---------- 环境初始化 ----------
 MODDIR=${0%/*}
 SCRIPTS_DIR="$MODDIR/scripts"
 . "$SCRIPTS_DIR/lib.sh"
-load_config
 
 GETEVENT=$(command -v getevent 2>/dev/null || echo /system/bin/getevent)
 TIMEOUT_BIN=$(command -v timeout 2>/dev/null || echo "")
+
+# ============================================================
+# 低层 UI 辅助
+# ============================================================
 
 # 读取音量键: 0=VOL+ 1=VOL- 2=超时
 # 内部消费 UP 等无关事件, 避免一次按键导致菜单重复刷新
@@ -37,45 +41,12 @@ read_vol() {
   done
 }
 
-# ---------- 直达地址计算 (显示在 TUI 顶部 + 浏览器打开用) ----------
-if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
-  # 合并模式: 单端口, 前端带 ?api= 指向后端路径
-  if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-    DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-  else
-    DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
-  fi
-  FRONT_ADDR="$DIRECT_ADDR"
-  BACK_ADDR="$DIRECT_ADDR"
-else
-  # 非合并: 与官方 Docker 一致 — 前端 ?api= 指向前端端口+前缀 (前端代理转发到后端),
-  # 后端入口地址同官方文档: 前端端口+前缀 (后端不直接暴露, 走前端代理)
-  if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-    BACK_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-    FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}?api=http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-  else
-    BACK_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
-    FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}"
-  fi
-fi
-# 浏览器打开目标: 合并用单地址, 非合并打开前端
-OPEN_URL="$FRONT_ADDR"
-
-# 开机自启当前状态
-if [ -f "$sub_store_path/manual" ]; then
-  AUTOSTART_LABEL="启用开机自启 (当前: 已禁用)"
-else
-  AUTOSTART_LABEL="禁用开机自启 (当前: 已启用)"
-fi
-
-MENU_SEL=1
-
-# 清屏: 优先 clear 命令 (无 ANSI 转义的环境也能用换行滚屏达到刷新效果)
+# 清屏: 优先 clear 命令 (无 clear 的环境也能用换行滚屏达到刷新效果)
 clear_screen() {
   if command -v clear >/dev/null 2>&1; then
     clear
   else
-    printf '\033[2J\033[H'
+    echo ""
   fi
 }
 
@@ -145,6 +116,51 @@ pick() {
   done
 }
 
+# ============================================================
+# 状态初始化
+# ============================================================
+
+# 直达地址计算 (显示在 TUI 顶部 + 浏览器打开用)
+direct_addr() {
+  load_config
+  if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
+    # 合并模式: 单端口, 前端带 ?api= 指向后端路径
+    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
+      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+    else
+      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
+    fi
+    FRONT_ADDR="$DIRECT_ADDR"
+    BACK_ADDR="$DIRECT_ADDR"
+  else
+    # 非合并: 与官方 Docker 一致 — 前端 ?api= 指向前端端口+前缀 (前端代理转发到后端),
+    # 后端入口地址同官方文档: 前端端口+前缀 (后端不直接暴露, 走前端代理)
+    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
+      BACK_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}?api=http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+    else
+      BACK_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
+      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}"
+    fi
+  fi
+  # 浏览器打开目标: 合并用单地址, 非合并打开前端
+  OPEN_URL="$FRONT_ADDR"
+}
+
+# 开机自启当前状态 (manual 文件存在 = 不自动启动)
+# 切换开关后要重新调用, 主菜单才能显示最新状态
+autostart_status() {
+  if [ -f "$sub_store_path/manual" ]; then
+    AUTOSTART_LABEL="启用开机自启 (当前: 已禁用)"
+  else
+    AUTOSTART_LABEL="禁用开机自启 (当前: 已启用)"
+  fi
+}
+
+# ============================================================
+# 具体动作
+# ============================================================
+
 # ---------- 浏览器打开直达地址 (默认浏览器) ----------
 open_address() {
   echo ""
@@ -167,6 +183,10 @@ toggle_autostart() {
     echo "已禁用开机自启 (下次重启不再自动启动, 可手动执行启动)"
   fi
 }
+
+# ============================================================
+# 子菜单与主菜单
+# ============================================================
 
 # ---------- http-meta 子菜单 (返回上一级回到更新菜单) ----------
 http_meta_menu() {
@@ -202,8 +222,8 @@ update_menu() {
     case "$MENU_SEL" in
       1)
         echo "== 开始: 全部更新 =="
-        NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"    || exit 1
-        NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"   || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"       || exit 1
+        NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"      || exit 1
         NO_RESTART=1 sh "$SCRIPTS_DIR/update_http_meta.sh" all || exit 1
         restart_service
         echo "== 全部更新完成 =="
@@ -228,26 +248,35 @@ update_menu() {
 }
 
 # ---------- 主菜单 (循环, 退出选项结束) ----------
-while true; do
-  pick \
-    "请选择操作" \
-    "浏览器打开直达地址" \
-    "启动 Sub-Store" \
-    "停止 Sub-Store" \
-    "重启 Sub-Store" \
-    "$AUTOSTART_LABEL" \
-    "更新选项 ..." \
-    "退出"
-  case "$MENU_SEL" in
-    1) open_address ;;
-    2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
-    3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
-    4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
-    5) toggle_autostart ;;
-    6) update_menu ;;
-    7) break ;;
-  esac
-done
+main_menu() {
+  while true; do
+    direct_addr
+    autostart_status
+    pick \
+      "请选择操作" \
+      "浏览器打开直达地址" \
+      "启动 Sub-Store" \
+      "停止 Sub-Store" \
+      "重启 Sub-Store" \
+      "$AUTOSTART_LABEL" \
+      "更新选项 ..." \
+      "退出"
+    case "$MENU_SEL" in
+      1) open_address ;;
+      2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
+      3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
+      4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
+      5) toggle_autostart ;;
+      6) update_menu ;;
+      7) break ;;
+    esac
+  done
+}
+
+# ============================================================
+# 启动入口: 先计算直达地址 / 初始化自启状态, 再进主菜单
+# ============================================================
+main_menu
 
 echo ""
 echo "完成。"
