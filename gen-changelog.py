@@ -52,7 +52,7 @@ def tag_section(tag, prev):
                 bl = bl[2:]
             elif bl.startswith("* "):
                 bl = bl[2:]
-            lines.append(f" - {bl}")
+            lines.append(f"  - {bl}")
     return lines
 
 
@@ -83,7 +83,7 @@ def main():
         out.append("")
     out += [
         "### Full Changelog",
-        f"- [Commit history](https://github.com/{repo_slug()}/commits/main/)",
+        f"  - [Commit history](https://github.com/{repo_slug()}/commits/main/)",
         "",
     ]
     print("\n".join(out))
