@@ -31,5 +31,5 @@ mkdir -p "$run_path"
 if [ ! -f "$sub_store_path/manual" ]; then
   mv "$run_path/run.log" "$run_path/run.log.bak" >/dev/null 2>&1
   mv "$run_path/run_error.log" "$run_path/run_error.log.bak" >/dev/null 2>&1
-  sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log"
+  sh "$SCRIPTS_DIR/sub_store.service" start >>"$run_path/run.log" 2>>"$run_path/run_error.log"
 fi

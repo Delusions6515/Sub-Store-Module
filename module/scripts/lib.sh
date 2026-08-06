@@ -31,7 +31,10 @@ load_config() {
 
 # 配置是否在启动后被修改 (返回 0=已修改未重启, 1=正常/不适用)
 # 供 load_config 输出提醒, 也供 TUI (action.sh) 菜单顶部常驻显示
+# 服务未运行时视为正常: 配置会在下次启动时生效, 不存在"旧配置在跑"的问题
+# (开机启动时序中服务可能尚未拉起, 不加此判断会误报)
 config_modified() {
+  pidof "$bin_name" >/dev/null 2>&1 || return 1
   if [ "${SERVICE_STARTING:-}" != "1" ] && [ -d "$CONFIG_DIR" ] \
     && [ -n "${run_path:-}" ] && [ -f "$run_path/.start_marker" ]; then
     [ "$CONFIG_FILE" -nt "$run_path/.start_marker" ] \
