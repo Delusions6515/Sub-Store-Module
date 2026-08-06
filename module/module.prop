@@ -3,4 +3,4 @@ name=Sub-Store for Android
 version=${versionName}
 versionCode=${versionCode}
 author=Delusions6515
-description=Advanced Subscription Manager with HTTP-META. 点击 [执行] 按钮, 按音量键选择更新
+description=Advanced Subscription Manager with HTTP-META.

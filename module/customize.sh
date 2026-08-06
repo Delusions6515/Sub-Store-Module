@@ -8,11 +8,6 @@
 #   https://apatch.dev/apm-guide.html
 # ============================================================
 
-ui_print "*******************************"
-ui_print "  Sub-Store for Android"
-ui_print "  by Delusions6515"
-ui_print "*******************************"
-
 # 仅支持在管理器内安装 (需要 root 初始化数据目录)
 if [ "$BOOTMODE" != "true" ]; then
   abort "! 请使用 Magisk/KernelSU 管理器安装本模块"
@@ -120,5 +115,5 @@ chmod ugo+x "$MODPATH"/*.sh "$MODPATH"/scripts/*.sh "$MODPATH"/scripts/sub_store
 
 ui_print "- 安装完成"
 ui_print "- 重启后 Sub-Store 将自动启动 (低权限 shell 用户运行):"
-ui_print "  http://127.0.0.1:3000  (默认合并端口, HTTP-META :9876)"
+ui_print "  http://127.0.0.1:3001  (默认合并端口, HTTP-META :9876)"
 ui_print "- 管理器内点击 [执行] 可按音量键选择更新"
