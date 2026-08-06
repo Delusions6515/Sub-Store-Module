@@ -227,9 +227,8 @@ chmod 755 "$STAGE/sub_store/bin/sub_store_node" "$STAGE/sub_store/bin/http-meta/
 # ---------- 7. 打包 ----------
 mkdir -p "$OUT_DIR"
 if [ -z "$OUT_ZIP" ]; then
-  SUFFIX=""
-  [ "$TARGET_ABI" != "arm64-v8a" ] && SUFFIX="-${TARGET_ABI}"
-  OUT_ZIP="$OUT_DIR/sub-store-module-${VER_NAME}-${VER_CODE}-${VER_HASH}-${BUILD_TYPE}${SUFFIX}.zip"
+  # 所有 ABI 统一带后缀 (与 workflow update JSON 的 zipUrl 命名对齐)
+  OUT_ZIP="$OUT_DIR/sub-store-module-${VER_NAME}-${VER_CODE}-${VER_HASH}-${BUILD_TYPE}-${TARGET_ABI}.zip"
 fi
 rm -f "$OUT_ZIP"
 (cd "$STAGE" && zip -rq "$OUT_ZIP" .)

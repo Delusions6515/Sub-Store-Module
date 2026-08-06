@@ -52,6 +52,16 @@ jobs:
       # 并行 job 共用同一 release tag, 直接 ncipollo create 会竞态 422
       # (4 个 job 同时 GET 不到 -> 同时 POST, 后到者 already_exists)
       # 先由 gh release create 抢建 (并发失败被 || true 消化), Upload 步骤只做更新上传
+      - name: Generate release notes (当前 tag 提交列表)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 gen-changelog.py --tag "$TAG" > release-notes.md
+          printf '\n构建记录: %s/%s/actions/runs/%s\n' \
+            "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}" >> release-notes.md
+          cat release-notes.md
+
       - name: Ensure release (防并行创建竞态)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -59,9 +69,10 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release $TAG 已存在"
+            echo "release $TAG 已存在, 更新 notes"
+            gh release edit "$TAG" --notes-file release-notes.md 2>/dev/null || true
           else
-            gh release create "$TAG" --title "Sub-Store for Android $TAG" --notes "构建记录见 Actions" 2>/dev/null \
+            gh release create "$TAG" --title "Sub-Store for Android $TAG" --notes-file release-notes.md 2>/dev/null \
               && echo "创建 release $TAG" \
               || echo "release 已被其他并行 job 创建"
           fi
@@ -75,9 +86,6 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           omitBodyDuringUpdate: true
-          body: |
-            Sub-Store for Android 模块
-            构建记录: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   # 发布 update JSON (各架构分开), 供管理器检测更新
   # module.prop 的 updateJson 指向 gh-pages 分支上的 update-<abi>.json
@@ -90,7 +98,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate update JSON (各架构分开)
+      - name: Generate update JSON (各架构分开) + CHANGELOG.md
         env:
           TAG: ${{ github.ref_name }}
         run: |
@@ -100,26 +108,27 @@ jobs:
           # 生成到独立目录 json-out/, 避免与后续 gh-pages checkout 的 untracked 文件冲突
           mkdir -p json-out
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            SUFFIX=""
-            [ "$abi" != "arm64-v8a" ] && SUFFIX="-${abi}"
+            SUFFIX="-${abi}"
             ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release${SUFFIX}.zip"
             cat > "json-out/update-${abi}.json" <<JSON
             {
               "version": "$TAG",
               "versionCode": $CODE,
               "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/$TAG/$ZIP",
-              "changelog": "https://github.com/Delusions6515/Sub-Store-Module/releases/tag/$TAG"
+              "changelog": "https://github.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md",
             }
           JSON
           done
+          # CHANGELOG.md: 生成每个 tag 相对上一 tag 的新提交, 只保留最近 4 个 tag
+          python3 gen-changelog.py > json-out/CHANGELOG.md
           ls -l json-out/
 
       - name: Publish to gh-pages branch
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          git config user.name "Delusions6515"
-          git config user.email "213381333+Delusions6515@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch origin gh-pages:gh-pages 2>/dev/null; then
             git checkout gh-pages
           else
@@ -127,9 +136,9 @@ jobs:
             git checkout --orphan gh-pages
             git rm -rf --cached . >/dev/null 2>&1 || git rm -rf . >/dev/null 2>&1 || true
           fi
-          cp json-out/update-*.json .
-          git add update-*.json
-          if git commit -m "update json: $TAG"; then
+          cp json-out/update-*.json json-out/CHANGELOG.md .
+          git add update-*.json CHANGELOG.md
+          if git commit -m "update json + changelog: $TAG"; then
             git push origin gh-pages
           else
             echo "update json 无变化, 跳过推送"
