@@ -50,6 +50,7 @@ start_bin() {
   # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
   # 降权: 优先系统 toybox setpriv (/system/bin/setpriv, 支持 --reuid, 不受 busybox 影响)
   # 依次尝试带/不带 --init-groups; 再试 su 2000; 最后 root
+  # rp: 启动前缀命令 (setpriv 前缀 / su 2000 -c); root 模式显式置空
   local rp="" su_mode=0
   if [ -n "${run_as_user:-}" ]; then
     case "$run_as_user" in
@@ -77,15 +78,23 @@ start_bin() {
             # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 UID 参数,
             # 但 command -v 存在 ≠ 可用, 实测成功才采用 (与 setpriv 同原则)
             su_mode=1
+            rp="su 2000 -c"
             log Info "降权: su 2000"
           else
-            log Warn "setpriv/su 均不可用, 回退以 root 运行"
+            # root: shell 模式的已知回退路径, 不算异常
+            rp=""
+            log Info "降权: setpriv/su 均不可用, 按已知回退以 root 运行"
           fi
         fi
         ;;
-      root|"") : ;;
-      *) log Warn "未知 run_as_user: $run_as_user, 回退以 root 运行" ;;
+      root|"")
+        # root: 显式直跑, 无降权前缀
+        rp=""
+        log Info "以 root 运行";;
+      *) rp=""; log Warn "未知 run_as_user: $run_as_user, 回退以 root 运行" ;;
     esac
+  else
+    rp=""  # 未配置 run_as_user = 默认 root
   fi
 
   # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
@@ -110,17 +119,23 @@ start_bin() {
       esac
     done < "$ENV_SOURCE"
   fi
-  # 启动 (su 模式经 su 2000 -c, 其余直接 nohup)
+
+  # 启动: su 模式 / setpriv 降权 / root 直跑
   if [ "$su_mode" = "1" ]; then
     su 2000 -c "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
     su 2000 -c "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
-  else
+  elif [ -n "$rp" ]; then
+    # setpriv 降权: rp 为前缀命令
     nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
     nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  else
+    # root: 直接运行
+    nohup "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
+    nohup "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
   fi
 
-  # 记录本次启动时间, 用于配置修改提醒
-  touch "$run_path/.start_marker" 2>/dev/null
+  # 记录本次启动时间 (写入内容 + 更新 mtime), 用于配置修改提醒
+  date '+%Y-%m-%d %H:%M:%S' > "$run_path/.start_marker" 2>/dev/null
 
   return 0
 }
