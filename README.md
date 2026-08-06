@@ -40,11 +40,11 @@
 
 启动后访问（默认**合并模式**，单端口）：
 
-- Sub-Store：<http://127.0.0.1:3000>
+- Sub-Store：<http://127.0.0.1:3001>
 - HTTP-META：<http://127.0.0.1:9876>
 
-> 分离模式（注释 `sub_store.env` 里的 `SUB_STORE_BACKEND_MERGE` 后）：
-> 前端 <http://127.0.0.1:3001> / 后端 <http://127.0.0.1:3000>
+> 分离模式（注释 `sub_store.env` 里的 `SUB_STORE_BACKEND_MERGE` 后）：  
+> 前端 <http://127.0.0.1:3002> / 后端 <http://127.0.0.1:3001>
 
 局域网访问：修改 `sub_store.env` 中的 `SUB_STORE_BACKEND_API_HOST` 为 `0.0.0.0` 后重启服务。
 
@@ -92,7 +92,7 @@ http-meta 子菜单:
 - **`sub_store.config`**：仅模块特有配置（路径、运行用户等）
 - **`sub_store.env`**：服务环境变量，全大写命名、与 Docker 版一致
   （内容与注释参考 [xream/sub-store](https://hub.docker.com/r/xream/sub-store) Docker 介绍）；
-  **文件中定义的所有变量都会在服务启动时导入进程**，新增 Docker 环境变量直接加进文件即可，无需改脚本
+  **文件中定义的所有变量都会在服务启动时导入进程**，Sub-Store 新增环境变量直接加进文件即可，无需改脚本
 
 修改配置后请**重启服务生效**；服务启动时会自动修正低权限用户（`run/`、`http-meta/`）的目录所有权，
 若配置已修改但未重启，运行更新等操作时会收到提醒。
@@ -101,28 +101,6 @@ http-meta 子菜单:
 > 默认只代理应用流量，shell 用户的流量**绕过 VPN 直连**。若订阅/机场需要代理访问，请在
 > `sub_store.env` 中设置 `SUB_STORE_BACKEND_DEFAULT_PROXY`（如 `socks5://127.0.0.1:7890`）；
 > http-meta 始终直连，不受影响。
-
-`sub_store.env` 中的环境变量（对应 Docker 版）：
-
-| 环境变量 | 说明 |
-| --- | --- |
-| `SUB_STORE_BACKEND_API_HOST` | 后端监听地址，内部裸后端勿暴露；局域网用 `0.0.0.0` |
-| `SUB_STORE_BACKEND_API_PORT` | 后端端口（默认 3000） |
-| `SUB_STORE_FRONTEND_BACKEND_PATH` | API 路径前缀（合并模式挂后端；分离模式由前端代理使用，`?api=` 指向前端端口+前缀） |
-| `SUB_STORE_FRONTEND_HOST` / `SUB_STORE_FRONTEND_PORT` | 前端监听（默认 3001） |
-| `SUB_STORE_BACKEND_MERGE` | 前后端合并为单端口（**默认 `true`**） |
-| `SUB_STORE_BODY_JSON_LIMIT` | 请求 Body 限制（默认 1mb） |
-| `SUB_STORE_MAX_HEADER_SIZE` | 响应头大小限制（Headers Overflow 时调大） |
-| `SUB_STORE_CORS_ALLOWED_ORIGINS` | CORS 白名单（默认 *） |
-| `SUB_STORE_BACKEND_DEFAULT_PROXY` | 默认代理（SOCKS5/HTTP/HTTPS）；shell 用户不走 VPN，需要代理时必须设置 |
-| `SUB_STORE_PUSH_SERVICE` | 推送服务（Bark / Telegram / PushPlus / shoutrrr） |
-| `SUB_STORE_MMDB_COUNTRY_PATH` / `SUB_STORE_MMDB_ASN_PATH` | MaxMind GeoLite2 数据库 |
-| `SUB_STORE_BACKEND_CUSTOM_NAME` / `SUB_STORE_BACKEND_CUSTOM_ICON` | 前端显示名称/图标 |
-| `SUB_STORE_X_POWERED_BY` | 自定义 `X-Powered-By` 响应头 |
-| `HOST` / `PORT` | HTTP-META 监听（默认 9876） |
-| `BODY_JSON_LIMIT` | HTTP-META Body 限制 |
-| `META_FOLDER` / `META_TEMP_FOLDER` | HTTP-META 数据/临时文件夹 |
-| `META_DISABLE_AUTO_CLEAN` | 调试：保留核心运行日志/配置 |
 
 `sub_store.config` 中的模块配置：
 
@@ -154,7 +132,8 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 
 - 手动触发：Actions → Build Sub-Store module → Run workflow，可选 ABI 与版本号
 - 推送 `v*` tag：自动构建并发布 release
-- 所有组件在线获取，无需本地参考文件；node 二进制来自 [node-android-build](https://github.com/Delusions6515/node-android-build) 的 release（先构建该仓库）
+- 所有组件在线获取，无需本地参考文件
+  - node 二进制来自 [Delusions6515/node-android-build](https://github.com/Delusions6515/node-android-build) 的 release
 
 ### 本地构建
 
@@ -171,13 +150,13 @@ NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
 
 - 组件来源：
   - **node**：始终使用官方最新 LTS 版本——从 `nodejs.org` 解析当前 LTS（如 `24.19.0`），
-    再到 `NODE_REPO`（默认 `Delusions6515/node-android-build`）的
-    `node-android-<arch>-<major>` release 取对应版本 asset（该仓库 release 按大版本归档、
+    再到 `NODE_REPO`（默认 [Delusions6515/node-android-build](https://github.com/Delusions6515/node-android-build)）的
+    `node-android-<arch>-<major>` release 取对应版本 asset（该仓库 release 按 `大版本`+`<arch>` 归档、
     全部 4 架构、历史版本保留）；最新 LTS 尚未构建时回退该大版本已有最高版本并告警；
     可用 `NODE_DIST_URL` / `NODE_BIN_PATH` 覆盖
-  - **后端**：`sub-store-org/Sub-Store` latest release
-  - **前端**：`sub-store-org/Sub-Store-Front-End` latest release
-  - **http-meta**：`xream/http-meta` latest release + `MetaCubeX/mihomo` 稳定版内核
+  - **后端**：[sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store) latest release
+  - **前端**：[sub-store-org/Sub-Store-Front-End](https://github.com/sub-store-org/Sub-Store-Front-End) latest release
+  - **http-meta**：[xream/http-meta](https://github.com/xream/http-meta) latest release + [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) 稳定版内核
 - 构建产物默认输出到当前目录的 `build/` 下（可用 `OUT_DIR` 覆盖）
 - 自动下载官方 `module_installer.sh` 生成 META-INF（恢复模式刷入用），失败时跳过（管理器安装不受影响）
 
