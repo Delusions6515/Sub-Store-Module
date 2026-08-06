@@ -1,6 +1,7 @@
 # Changelog
 
-## v2.0.6 (42-1c9515f-release)
+## v2.0.6 (43-33c9fe4-release)
+- fix: 修复开机误报"配置已修改但未重启"
 - feat(action): 添加配置修改提醒功能，提示用户重启以应用新配置
 - refactor(service): 让 sub_store.service 的降权回退逻辑更有可读性
 - fix(ci): 修正 CHANGELOG.md 中的缩进格式
