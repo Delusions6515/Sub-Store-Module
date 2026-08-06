@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.0.6 (42-1c9515f-release)
+- feat(action): 添加配置修改提醒功能，提示用户重启以应用新配置
+- refactor(service): 让 sub_store.service 的降权回退逻辑更有可读性
+- fix(ci): 修正 CHANGELOG.md 中的缩进格式
+- chored(docs): update README.md
+
 ## v2.0.5 (38-a4de368-release)
 - feat: action.sh: 重构为函数结构 + 状态每轮实时刷新
 - fix: update default config - 旧版默配置实际无法正常连接到后端
@@ -30,31 +36,6 @@
   - 后到者报 already_exists (x86 构建最慢稳定失败)
   - 新增 Ensure release step: gh release create 抢建, 并发失败 || true 消化;
   - Upload 步骤只做 allowUpdates 更新上传
-
-## v2.0.2 (31-394e53d-release)
-- service: 降权链成功路径加日志 (记录 setpriv/su/root 实际使用情况)
-  - 之前只有失败有日志 (setpriv 不可用->su / 回退 root), setpriv 成功完全静默
-  - 现在成功时输出 Info: 降权: /system/bin/setpriv (toybox, --init-groups) /
-  - 任意 setpriv 路径, 便于收集各设备上 setpriv 可用性
-  - 沙盒验证: 成功 Info / 失败 Warn 均正常
-- chore(deps): bump ncipollo/release-action from 1.14.0 to 1.21.0 (#3)
-- chore(deps): bump actions/checkout from 4 to 7 (#2)
-- chore(deps): bump actions/upload-artifact from 4 to 7 (#1)
-- chore(deps): 新增 dependabot 自动更新 GitHub Actions 依赖
-- customize.sh: 升级安装时可选择是否覆盖二进制 (音量+ 覆盖 / 其他键跳过)
-  - 检测到已有二进制时询问: 音量+ 用包内新版本覆盖, 其他键或 5 秒无按键
-  - 跳过保留 (之后可用 [执行] 按钮更新); 全新安装直接拷贝, 无交互
-  - 复用 action.sh 的 getevent+timeout 读键方式, 消费 UP 事件
-  - 沙盒测试 5 场景: 全新/音量+覆盖/音量-跳过/超时跳过/UP消费 PASS
-  - README: 安装说明补充升级交互
-- node 始终使用官方最新 LTS 版本
-  - fetch_node 改为解析 nodejs.org index.json 的当前 LTS (如 24.19.0),
-  - 从 node-android-<arch>-<major> release 取对应版本 asset (release 已按大版本归档)
-  - 最新 LTS 尚未构建时回退该大版本已有最高版本并告警
-  - README/注释同步更新
-- Update README.md
-  - fix xream's Sub-Store for Magisk link.
-- Update README.md
 
 ### Full Changelog
   - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
