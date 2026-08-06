@@ -67,6 +67,11 @@ draw_menu() {
     echo "  前端: $FRONT_ADDR"
     echo "  后端: $BACK_ADDR"
   fi
+  # 配置修改提醒: 配置在启动后被改过且未重启, 常驻显示在菜单顶部
+  if config_modified; then
+    echo "  [!] 配置已修改但未重启, 当前运行的是旧配置"
+    echo "      重启 Sub-Store 后生效"
+  fi
   echo "---------------------------------------"
   echo ""
   echo "  --- $title ---"

@@ -27,15 +27,17 @@ load_config() {
   ENV_SOURCE="$ENV_FILE"
   [ -f "$ENV_SOURCE" ] || ENV_SOURCE="$SCRIPTS_DIR/sub_store.env"
   [ -f "$ENV_SOURCE" ] && . "$ENV_SOURCE" 2>/dev/null
+}
 
-  # 配置修改提醒: 用户改了配置但服务未重启时, 提示手动重启 (服务启动流程跳过)
+# 配置是否在启动后被修改 (返回 0=已修改未重启, 1=正常/不适用)
+# 供 load_config 输出提醒, 也供 TUI (action.sh) 菜单顶部常驻显示
+config_modified() {
   if [ "${SERVICE_STARTING:-}" != "1" ] && [ -d "$CONFIG_DIR" ] \
     && [ -n "${run_path:-}" ] && [ -f "$run_path/.start_marker" ]; then
-    if [ "$CONFIG_FILE" -nt "$run_path/.start_marker" ] \
-      || [ "$ENV_SOURCE" -nt "$run_path/.start_marker" ]; then
-      warn "检测到配置已修改, 但服务未重启, 当前运行的是旧配置"
-      warn "请执行: su -c \"sh /data/adb/modules/sub_store/scripts/sub_store.service restart\""
-    fi
+    [ "$CONFIG_FILE" -nt "$run_path/.start_marker" ] \
+      || [ "$ENV_SOURCE" -nt "$run_path/.start_marker" ]
+  else
+    return 1
   fi
 }
 
