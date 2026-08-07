@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          LABEL="未遵循模板"
+          LABEL="not following template"
           NUMBER="${{ github.event.issue.number }}"
           BODY_FILE=$(mktemp)
           trap 'rm -f "$BODY_FILE"' EXIT
@@ -65,7 +65,10 @@ jobs:
               gh issue comment "$NUMBER" --body "已检测到内容符合模板要求，已移除「$LABEL」标记，感谢补充！"
             fi
           else
-            gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板" --force
+            # label 不存在才创建, 已存在则不创建
+            if ! gh label list --json name -q '.[].name' | grep -Fx "$LABEL" >/dev/null 2>&1; then
+              gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板"
+            fi
             if [ -z "$has_label" ]; then
               gh issue edit "$NUMBER" --add-label "$LABEL"
               gh issue comment "$NUMBER" --body "该 Issue 未遵循模板（必填内容缺失），编辑补充后会自动移除标记；未修改的 Issue 将在每周一自动关闭。"
@@ -83,9 +86,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          LABEL="未遵循模板"
-          # 保证 label 存在 (首次运行时可能还没被 check-template 创建过)
-          gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板" --force
+          LABEL="not following template"
+          # label 不存在才创建, 已存在则不创建 (避免 --force 覆盖)
+          if ! gh label list --json name -q '.[].name' | grep -Fx "$LABEL" >/dev/null 2>&1; then
+            gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板"
+          fi
           gh issue list --state open --label "$LABEL" --json number -q '.[].number' | while read -r n; do
             gh issue comment "$n" --body "该 Issue 因未遵循模板且未在期限内修改，已自动关闭。如需继续反馈，请重新提交并按模板填写。"
             gh issue close "$n"
