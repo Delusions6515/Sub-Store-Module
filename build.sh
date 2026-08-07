@@ -20,16 +20,12 @@
 #                    取对应版本 tar.xz, 尚未构建时回退该大版本已有最高版本)
 #   NODE_DIST_URL    直接指定 node tar.xz 下载地址 (覆盖 NODE_REPO)
 #   NODE_BIN_PATH    直接指定本地 node 二进制文件 (覆盖上面两者, 本地调试用)
-#   WEBUI_REPO_DIR   WebUI 源码仓库目录 (默认 ../Sub-Store-Module-WebUI)
-#   WEBUI_DIST_DIR   直接指定已构建好的 WebUI dist 目录 (覆盖 WEBUI_REPO_DIR)
 #   OUT_DIR          输出目录 (默认 ./build)
 # ============================================================
 set -euo pipefail
 
 REPO_DIR=$(cd "$(dirname "$0")" && pwd)
 MODULE_DIR="$REPO_DIR/module"
-WEBUI_REPO_DIR="${WEBUI_REPO_DIR:-$(cd "$REPO_DIR/.." && pwd)/Sub-Store-Module-WebUI}"
-WEBUI_DIST_DIR="${WEBUI_DIST_DIR:-}"
 OUT_DIR="${OUT_DIR:-$(pwd)/build}"
 TARGET_ABI="${TARGET_ABI:-arm64-v8a}"
 VERSION="${1:-}"
@@ -156,36 +152,6 @@ fetch_http_meta() {  # $1 = sub_store/bin 目录
   info "http-meta: 内核 $tag"
 }
 
-# ---------- WebUI ----------
-build_webui() {
-  local dist="${WEBUI_DIST_DIR:-}"
-  if [ -n "$dist" ]; then
-    [ -d "$dist" ] || die "WEBUI_DIST_DIR 不存在: $dist"
-  elif [ -f "$WEBUI_REPO_DIR/package.json" ]; then
-    dist="$WEBUI_REPO_DIR/dist"
-    info "WebUI: 构建 $WEBUI_REPO_DIR ..."
-    command -v pnpm >/dev/null 2>&1 || die "未找到 pnpm, 无法构建 WebUI"
-    (
-      cd "$WEBUI_REPO_DIR"
-      if [ -f pnpm-lock.yaml ]; then
-        pnpm install --frozen-lockfile
-      else
-        pnpm install
-      fi
-      pnpm build
-    )
-  else
-    info "WebUI: 未发现源码仓库, 跳过"
-    return 0
-  fi
-
-  [ -f "$dist/index.html" ] || die "WebUI 构建产物缺少 index.html: $dist"
-  rm -rf "$STAGE/webroot"
-  mkdir -p "$STAGE/webroot"
-  cp -r "$dist"/. "$STAGE/webroot/"
-  info "WebUI: 已写入 module/webroot"
-}
-
 # ---------- 1. 拷贝模块源码 ----------
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
@@ -214,10 +180,7 @@ for f in \
   [ -e "$STAGE/$f" ] || die "缺少组件文件: $f"
 done
 
-# ---------- 3. WebUI ----------
-build_webui
-
-# ---------- 4. META-INF (官方 module_installer.sh), 失败则跳过 ----------
+# ---------- 3. META-INF (官方 module_installer.sh), 失败则跳过 ----------
 mkdir -p "$STAGE/META-INF/com/google/android"
 if download "https://raw.githubusercontent.com/topjohnwu/Magisk/master/scripts/module_installer.sh" \
   "$STAGE/META-INF/com/google/android/update-binary"; then
@@ -228,7 +191,7 @@ else
   warn "获取 module_installer.sh 失败, 跳过 META-INF (管理器内安装不受影响)"
 fi
 
-# ---------- 5. 版本 (参考 ZygiskNext: versionCode=git 提交数, version 附带短 hash) ----------
+# ---------- 4. 版本 (参考 ZygiskNext: versionCode=git 提交数, version 附带短 hash) ----------
 # 版本名: 优先参数/环境变量, 其次取最近 git tag (自动去 v 前缀), 最后回退 dev
 VER_NAME="${VERSION:-}"
 if [ -z "$VER_NAME" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -250,18 +213,18 @@ VERSION_LINE="$VER_NAME ($VER_CODE-$VER_HASH-$BUILD_TYPE)"
 sed -i "s/^version=.*/version=$VERSION_LINE/; s/^versionCode=.*/versionCode=$VER_CODE/" "$STAGE/module.prop"
 info "版本: $VERSION_LINE (versionCode: $VER_CODE)"
 
-# ---------- 6. updateJson (各架构分开, 由 workflow 发布到 gh-pages 分支) ----------
+# ---------- 5. updateJson (各架构分开, 由 workflow 发布到 gh-pages 分支) ----------
 UPDATE_JSON_BASE="${UPDATE_JSON_BASE:-https://raw.githubusercontent.com/Delusions6515/Sub-Store-Module/gh-pages}"
 sed -i "/^updateJson=/d" "$STAGE/module.prop"
 echo "updateJson=$UPDATE_JSON_BASE/update-${TARGET_ABI}.json" >> "$STAGE/module.prop"
 info "updateJson: $UPDATE_JSON_BASE/update-${TARGET_ABI}.json"
 
-# ---------- 7. 权限 ----------
+# ---------- 6. 权限 ----------
 find "$STAGE" -type f \( -name '*.sh' -o -name 'sub_store.service' -o -name 'sub_store.inotify' -o -name 'update-binary' \) -exec chmod 755 {} +
 find "$STAGE" -type d -exec chmod 755 {} +
 chmod 755 "$STAGE/sub_store/bin/sub_store_node" "$STAGE/sub_store/bin/http-meta/http-meta"
 
-# ---------- 8. 打包 ----------
+# ---------- 7. 打包 ----------
 mkdir -p "$OUT_DIR"
 if [ -z "$OUT_ZIP" ]; then
   # 所有 ABI 统一带后缀 (与 workflow update JSON 的 zipUrl 命名对齐)

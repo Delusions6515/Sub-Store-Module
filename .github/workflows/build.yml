@@ -46,12 +46,10 @@ jobs:
           is_prerelease=false
           publish_update_json=false
           build_type=release
-          # hotfix 属于稳定版修订，不按 prerelease 处理；alpha/beta/rc 才算预发布。
-          if [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
+          # hotfix 分支先沿用旧发版链路：这里只区分 prerelease。
+          if [[ "$version" == *-* ]]; then
             is_prerelease=true
             build_type=prerelease
-          elif [[ "$version" == *-hotfix* ]]; then
-            build_type=hotfix
           fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
@@ -68,44 +66,8 @@ jobs:
           echo "publish-update-json=$publish_update_json" >> "$GITHUB_OUTPUT"
           echo "build-type=$build_type" >> "$GITHUB_OUTPUT"
 
-  webui:
-    needs: metadata
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout WebUI repo
-        uses: actions/checkout@v7
-        with:
-          repository: Delusions6515/Sub-Store-Module-WebUI
-          path: Sub-Store-Module-WebUI
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.3.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: Sub-Store-Module-WebUI/pnpm-lock.yaml
-
-      - name: Build WebUI
-        run: |
-          cd Sub-Store-Module-WebUI
-          pnpm install --frozen-lockfile
-          pnpm build
-          ls -lh dist/
-
-      - name: Upload WebUI artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: sub-store-webui-dist
-          path: Sub-Store-Module-WebUI/dist
-          if-no-files-found: error
-
   build:
-    needs: [metadata, webui]
+    needs: metadata
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -116,12 +78,6 @@ jobs:
         with:
           fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
 
-      - name: Download WebUI artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: sub-store-webui-dist
-          path: webui-dist
-
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils
 
@@ -129,7 +85,6 @@ jobs:
         env:
           TARGET_ABI: ${{ matrix.abi }}
           BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
-          WEBUI_DIST_DIR: ${{ github.workspace }}/webui-dist
         run: |
           ./build.sh "${{ needs.metadata.outputs.version }}"
           ls -lh build/*.zip
