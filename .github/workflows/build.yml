@@ -18,13 +18,60 @@ permissions:
   contents: write
 
 jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      abi-matrix: ${{ steps.meta.outputs.abi-matrix }}
+      version: ${{ steps.meta.outputs.version }}
+      build-type: ${{ steps.meta.outputs.build-type }}
+      is-tag: ${{ steps.meta.outputs.is-tag }}
+      is-prerelease: ${{ steps.meta.outputs.is-prerelease }}
+      publish-update-json: ${{ steps.meta.outputs.publish-update-json }}
+    steps:
+      - id: meta
+        shell: bash
+        run: |
+          if [ "${{ inputs.abi || 'all' }}" = "all" ]; then
+            echo 'abi-matrix=["arm64-v8a","armeabi-v7a","x86_64","x86"]' >> "$GITHUB_OUTPUT"
+          else
+            printf 'abi-matrix=["%s"]\n' "${{ inputs.abi }}" >> "$GITHUB_OUTPUT"
+          fi
+
+          tag="${GITHUB_REF_NAME:-}"
+          version="${{ inputs.version }}"
+          [ -n "$version" ] || version="$tag"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          is_tag=false
+          is_prerelease=false
+          publish_update_json=false
+          build_type=release
+          if [[ "$version" == *-* ]]; then
+            is_prerelease=true
+            build_type=prerelease
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            is_tag=true
+            # SemVer prerelease tags look like v1.2.3-alpha.1. GitHub release
+            # gets marked prerelease, and gh-pages update JSON stays on stable.
+            if [ "$is_prerelease" = "false" ]; then
+              publish_update_json=true
+            fi
+          fi
+
+          echo "is-tag=$is_tag" >> "$GITHUB_OUTPUT"
+          echo "is-prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
+          echo "publish-update-json=$publish_update_json" >> "$GITHUB_OUTPUT"
+          echo "build-type=$build_type" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: metadata
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # 手动选择具体 ABI 时只构建该 ABI; 默认/tag 推送构建全部 4 架构
-        abi: ${{ (inputs.abi || 'all') == 'all' && fromJSON('["arm64-v8a","armeabi-v7a","x86_64","x86"]') || fromJSON(format('["{0}"]', inputs.abi || 'all')) }}
+        abi: ${{ fromJSON(needs.metadata.outputs.abi-matrix) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,10 +83,9 @@ jobs:
       - name: Build module
         env:
           TARGET_ABI: ${{ matrix.abi }}
+          BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
         run: |
-          VERSION="${{ inputs.version }}"
-          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME:-}"
-          ./build.sh "$VERSION"
+          ./build.sh "${{ needs.metadata.outputs.version }}"
           ls -lh build/*.zip
 
       - name: Upload artifact
@@ -49,49 +95,53 @@ jobs:
           path: build/*.zip
           if-no-files-found: error
 
-      # 并行 job 共用同一 release tag, 直接 ncipollo create 会竞态 422
-      # (4 个 job 同时 GET 不到 -> 同时 POST, 后到者 already_exists)
-      # 先由 gh release create 抢建 (并发失败被 || true 消化), Upload 步骤只做更新上传
-      - name: Generate release notes (当前 tag 提交列表)
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    needs: [metadata, build]
+    if: needs.metadata.outputs.is-tag == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate release notes
         env:
           TAG: ${{ github.ref_name }}
+          BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
         run: |
-          python3 gen-changelog.py --tag "$TAG" > release-notes.md
+          args=(--tag "$TAG" --build-type "$BUILD_TYPE")
+          [ "$BUILD_TYPE" = "release" ] && args+=(--stable-only)
+          python3 gen-changelog.py "${args[@]}" > release-notes.md
           printf '\n构建记录: %s/%s/actions/runs/%s\n' \
             "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}" >> release-notes.md
           cat release-notes.md
 
-      - name: Ensure release (防并行创建竞态)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.metadata.outputs.is-prerelease }}
         run: |
-          TAG="${{ github.ref_name }}"
+          args=(--title "Sub-Store for Android $TAG" --notes-file release-notes.md)
+          [ "$PRERELEASE" = "true" ] && args+=(--prerelease --latest=false)
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release $TAG 已存在, 更新 notes"
-            gh release edit "$TAG" --notes-file release-notes.md 2>/dev/null || true
+            gh release edit "$TAG" "${args[@]}"
           else
-            gh release create "$TAG" --title "Sub-Store for Android $TAG" --notes-file release-notes.md 2>/dev/null \
-              && echo "创建 release $TAG" \
-              || echo "release 已被其他并行 job 创建"
+            gh release create "$TAG" "${args[@]}"
           fi
+          gh release upload "$TAG" dist/*.zip --clobber
 
-      - name: Upload release (tag push)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: ncipollo/release-action@v1.21.0
-        with:
-          tag: ${{ github.ref_name }}
-          artifacts: build/*.zip
-          allowUpdates: true
-          replacesArtifacts: true
-          omitBodyDuringUpdate: true
-
-  # 发布 update JSON (各架构分开), 供管理器检测更新
+  # 发布 update JSON (各架构分开), 供管理器检测稳定版更新
   # module.prop 的 updateJson 指向 gh-pages 分支上的 update-<abi>.json
   update-json:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [metadata, release]
+    if: needs.metadata.outputs.publish-update-json == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -108,19 +158,18 @@ jobs:
           # 生成到独立目录 json-out/, 避免与后续 gh-pages checkout 的 untracked 文件冲突
           mkdir -p json-out
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            SUFFIX="-${abi}"
-            ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release${SUFFIX}.zip"
+            ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release-${abi}.zip"
             cat > "json-out/update-${abi}.json" <<JSON
-            {
-              "version": "$TAG",
-              "versionCode": $CODE,
-              "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/$TAG/$ZIP",
-              "changelog": "https://github.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md",
-            }
+          {
+            "version": "$TAG",
+            "versionCode": $CODE,
+            "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/$TAG/$ZIP",
+            "changelog": "https://raw.githubusercontent.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md"
+          }
           JSON
           done
-          # CHANGELOG.md: 生成每个 tag 相对上一 tag 的新提交, 只保留最近 4 个 tag
-          python3 gen-changelog.py > json-out/CHANGELOG.md
+          # CHANGELOG.md: 生成每个稳定 tag 相对上一稳定 tag 的新提交, 只保留最近 4 个 tag
+          python3 gen-changelog.py --stable-only > json-out/CHANGELOG.md
           ls -l json-out/
 
       - name: Publish to gh-pages branch
