@@ -44,6 +44,36 @@ config_modified() {
   fi
 }
 
+# ---------- SUB_STORE_FRONTEND_BACKEND_PATH ----------
+# 模块内置默认值 (与 sub_store.env 保持一致, 改默认值时两处都要改)
+# 首次安装时会被随机替换; 若检测到仍在使用该默认值, TUI (action.sh) 会告警
+DEFAULT_BACKEND_PATH="/2cXaAxRGfddmGz2yx1wA"
+
+# 生成随机 SUB_STORE_FRONTEND_BACKEND_PATH: / + 20~24 位随机字符 (a-zA-Z0-9)
+# 成功输出新路径; 失败输出空 (调用方自行处理)
+# 不使用 local (兼容安装器环境), 内部变量统一 _bp_ 前缀避免污染
+# 注意: 部分 sh 环境 (dash) 无 $RANDOM, 算术里按空值处理, len 退化为 20
+gen_backend_path() {
+  _bp_len=$((20 + (RANDOM % 5)))
+  _bp_out=""
+  # 首选 /dev/urandom; tr 过滤非字母数字, head 取前 N 位 (urandom 不 EOF, 必然取满)
+  _bp_out=$(tr -dc 'a-zA-Z0-9' </dev/urandom 2>/dev/null | head -c "$_bp_len" 2>/dev/null)
+  if [ "$(printf '%s' "$_bp_out" | wc -c)" -ne "$_bp_len" ]; then
+    # 回退: 用 $RANDOM 逐字符生成 (busybox ash / mksh 支持)
+    _bp_out=""
+    _bp_chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    _bp_i=0
+    while [ "$_bp_i" -lt "$_bp_len" ]; do
+      _bp_idx=$(( (RANDOM % 62) + 1 ))
+      _bp_out="$_bp_out$(printf '%s' "$_bp_chars" | cut -c "$_bp_idx")"
+      _bp_i=$((_bp_i + 1))
+    done
+  fi
+  if [ "$(printf '%s' "$_bp_out" | wc -c)" -eq "$_bp_len" ]; then
+    printf '/%s' "$_bp_out"
+  fi
+}
+
 # ---------- 输出 ----------
 info() { echo "[Info] $1"; }
 warn() { echo "[Warn] $1"; }

@@ -31,6 +31,9 @@ else
   fi
 fi
 
+# 公共函数库 (随机路径生成等)
+. "$MODPATH/scripts/lib.sh"
+
 DATA_DIR=/data/local/sub_store
 BIN_DIR=$DATA_DIR/bin
 SCRIPTS_DIR=$DATA_DIR/scripts
@@ -89,6 +92,15 @@ fi
 if [ ! -f "$SCRIPTS_DIR/sub_store.env" ]; then
   ui_print "- 写入默认环境变量文件 sub_store.env"
   cp -f "$MODPATH/scripts/sub_store.env" "$SCRIPTS_DIR/sub_store.env"
+  # 首次安装: 自动把模块默认 SUB_STORE_FRONTEND_BACKEND_PATH 替换为随机值
+  # (默认值所有安装者都一样, 等同共享密钥, 必须随机化)
+  NEW_PATH=$(gen_backend_path)
+  if [ -n "$NEW_PATH" ]; then
+    sed -i "s|^SUB_STORE_FRONTEND_BACKEND_PATH=.*|SUB_STORE_FRONTEND_BACKEND_PATH=\"$NEW_PATH\"|" "$SCRIPTS_DIR/sub_store.env"
+    ui_print "- 已随机化 SUB_STORE_FRONTEND_BACKEND_PATH"
+  else
+    ui_print "! 随机路径生成失败, 保持模块默认值 (可在执行菜单中重新生成)"
+  fi
 fi
 
 # 清理旧版 (xream v1) 遗留的开机脚本, 避免与新模块的 service.sh 重复启动

@@ -72,6 +72,12 @@ draw_menu() {
     echo "  [!] 配置已修改但未重启, 当前运行的是旧配置"
     echo "      重启 Sub-Store 后生效"
   fi
+  # 安全提醒: SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值时告警
+  # (默认值所有安装者都一样, 等同公开路径, 建议随机化)
+  if [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "$DEFAULT_BACKEND_PATH" ]; then
+    echo "  [!] SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值"
+    echo "      建议用下方菜单项重新生成随机路径"
+  fi
   echo "---------------------------------------"
   echo ""
   echo "  --- $title ---"
@@ -189,6 +195,37 @@ toggle_autostart() {
   fi
 }
 
+# ---------- 生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH (随机化) ----------
+# 写入用户实际生效的 env 文件 (/data/local/sub_store/scripts/sub_store.env);
+# 老环境没有用户 env 时先落一份默认配置再替换, 避免改到会被模块更新覆盖的内置文件
+regenerate_backend_path() {
+  load_config
+  local target="$CONFIG_DIR/sub_store.env"
+  if [ ! -f "$target" ]; then
+    mkdir -p "$CONFIG_DIR" 2>/dev/null
+    cp -f "$SCRIPTS_DIR/sub_store.env" "$target" 2>/dev/null || {
+      echo ""
+      echo "[Error] 无法创建 $target"
+      return 1
+    }
+  fi
+  local new_path
+  new_path=$(gen_backend_path)
+  if [ -z "$new_path" ]; then
+    echo ""
+    echo "[Error] 生成随机路径失败"
+    return 1
+  fi
+  sed -i "s|^SUB_STORE_FRONTEND_BACKEND_PATH=.*|SUB_STORE_FRONTEND_BACKEND_PATH=\"$new_path\"|" "$target"
+  echo ""
+  echo "已生成新的 SUB_STORE_FRONTEND_BACKEND_PATH:"
+  echo "  $new_path"
+  echo "已写入: $target"
+  echo "自动重启 Sub-Store 以应用新路径 ..."
+  restart_service
+  echo "重启完成"
+}
+
 # ============================================================
 # 子菜单与主菜单
 # ============================================================
@@ -263,6 +300,7 @@ main_menu() {
       "启动 Sub-Store" \
       "停止 Sub-Store" \
       "重启 Sub-Store" \
+      "生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH" \
       "$AUTOSTART_LABEL" \
       "更新选项 ..." \
       "退出"
@@ -271,9 +309,10 @@ main_menu() {
       2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
       3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
       4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
-      5) toggle_autostart ;;
-      6) update_menu ;;
-      7) break ;;
+      5) regenerate_backend_path ;;
+      6) toggle_autostart ;;
+      7) update_menu ;;
+      8) break ;;
     esac
   done
 }
