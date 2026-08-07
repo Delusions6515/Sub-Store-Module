@@ -74,7 +74,7 @@ draw_menu() {
   fi
   # 安全提醒: SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值时告警
   # (默认值所有安装者都一样, 等同公开路径, 建议随机化)
-  if [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "$DEFAULT_BACKEND_PATH" ]; then
+  if backend_path_is_default; then
     echo "  [!] SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值"
     echo "      建议用下方菜单项重新生成随机路径"
   fi
@@ -131,40 +131,13 @@ pick() {
 # 状态初始化
 # ============================================================
 
-# 直达地址计算 (显示在 TUI 顶部 + 浏览器打开用)
-direct_addr() {
-  load_config
-  if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
-    # 合并模式: 单端口, 前端带 ?api= 指向后端路径
-    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-    else
-      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
-    fi
-    FRONT_ADDR="$DIRECT_ADDR"
-    BACK_ADDR="$DIRECT_ADDR"
-  else
-    # 非合并: 与官方 Docker 一致 — 前端 ?api= 指向前端端口+前缀 (前端代理转发到后端),
-    # 后端入口地址同官方文档: 前端端口+前缀 (后端不直接暴露, 走前端代理)
-    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
-      BACK_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}?api=http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
-    else
-      BACK_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
-      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}"
-    fi
-  fi
-  # 浏览器打开目标: 合并用单地址, 非合并打开前端
-  OPEN_URL="$FRONT_ADDR"
-}
-
 # 开机自启当前状态 (manual 文件存在 = 不自动启动)
 # 切换开关后要重新调用, 主菜单才能显示最新状态
 autostart_status() {
-  if [ -f "$sub_store_path/manual" ]; then
-    AUTOSTART_LABEL="启用开机自启 (当前: 已禁用)"
-  else
+  if autostart_enabled; then
     AUTOSTART_LABEL="禁用开机自启 (当前: 已启用)"
+  else
+    AUTOSTART_LABEL="启用开机自启 (当前: 已禁用)"
   fi
 }
 
@@ -182,49 +155,6 @@ open_address() {
   fi
 }
 
-# ---------- 开机自启开关 (manual 文件存在 = 不自动启动) ----------
-toggle_autostart() {
-  if [ -f "$sub_store_path/manual" ]; then
-    rm -f "$sub_store_path/manual"
-    echo ""
-    echo "已启用开机自启 (下次重启自动启动)"
-  else
-    touch "$sub_store_path/manual"
-    echo ""
-    echo "已禁用开机自启 (下次重启不再自动启动, 可手动执行启动)"
-  fi
-}
-
-# ---------- 生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH (随机化) ----------
-# 写入用户实际生效的 env 文件 (/data/local/sub_store/scripts/sub_store.env);
-# 老环境没有用户 env 时先落一份默认配置再替换, 避免改到会被模块更新覆盖的内置文件
-regenerate_backend_path() {
-  load_config
-  local target="$CONFIG_DIR/sub_store.env"
-  if [ ! -f "$target" ]; then
-    mkdir -p "$CONFIG_DIR" 2>/dev/null
-    cp -f "$SCRIPTS_DIR/sub_store.env" "$target" 2>/dev/null || {
-      echo ""
-      echo "[Error] 无法创建 $target"
-      return 1
-    }
-  fi
-  local new_path
-  new_path=$(gen_backend_path)
-  if [ -z "$new_path" ]; then
-    echo ""
-    echo "[Error] 生成随机路径失败"
-    return 1
-  fi
-  sed -i "s|^SUB_STORE_FRONTEND_BACKEND_PATH=.*|SUB_STORE_FRONTEND_BACKEND_PATH=\"$new_path\"|" "$target"
-  echo ""
-  echo "已生成新的 SUB_STORE_FRONTEND_BACKEND_PATH:"
-  echo "  $new_path"
-  echo "已写入: $target"
-  echo "自动重启 Sub-Store 以应用新路径 ..."
-  restart_service
-  echo "重启完成"
-}
 
 # ============================================================
 # 子菜单与主菜单
@@ -292,7 +222,8 @@ update_menu() {
 # ---------- 主菜单 (循环, 退出选项结束) ----------
 main_menu() {
   while true; do
-    direct_addr
+    load_config
+    compute_direct_urls
     autostart_status
     pick \
       "请选择操作" \
@@ -309,8 +240,8 @@ main_menu() {
       2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
       3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
       4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
-      5) regenerate_backend_path ;;
-      6) toggle_autostart ;;
+      5) echo ""; regenerate_backend_path ;;
+      6) echo ""; toggle_autostart ;;
       7) update_menu ;;
       8) break ;;
     esac

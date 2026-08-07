@@ -74,10 +74,140 @@ gen_backend_path() {
   fi
 }
 
-# ---------- 输出 ----------
-info() { echo "[Info] $1"; }
-warn() { echo "[Warn] $1"; }
-err()  { echo "[Error] $1"; }
+# ---------- 状态 / 地址 ----------
+service_running() {
+  pidof "$bin_name" >/dev/null 2>&1
+}
+
+autostart_enabled() {
+  [ ! -f "$sub_store_path/manual" ]
+}
+
+backend_path_is_default() {
+  [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "$DEFAULT_BACKEND_PATH" ]
+}
+
+compute_direct_urls() {
+  if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
+    # 合并模式: 单端口, 前端带 ?api= 指向后端路径
+    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
+      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}?api=http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+    else
+      DIRECT_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
+    fi
+    FRONT_ADDR="$DIRECT_ADDR"
+    BACK_ADDR="$DIRECT_ADDR"
+  else
+    # 非合并: 与官方 Docker 一致 — 前端 ?api= 指向前端端口+前缀 (前端代理转发到后端),
+    # 后端入口地址同官方文档: 前端端口+前缀 (后端不直接暴露, 走前端代理)
+    if [ -n "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" ]; then
+      BACK_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}?api=http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}${SUB_STORE_FRONTEND_BACKEND_PATH}"
+    else
+      BACK_ADDR="http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3000}"
+      FRONT_ADDR="http://127.0.0.1:${SUB_STORE_FRONTEND_PORT:-3001}"
+    fi
+  fi
+  # 浏览器打开目标: 合并用单地址, 非合并打开前端
+  OPEN_URL="$FRONT_ADDR"
+}
+
+# ---------- JSON 输出 ----------
+json_escape() {
+  printf '%s' "$1" | awk 'BEGIN { ORS="" }
+    {
+      gsub(/\\/, "\\\\")
+      gsub(/"/, "\\\"")
+      gsub(/\r/, "\\r")
+      gsub(/\n/, "\\n")
+      print
+    }'
+}
+
+print_status_json() {
+  load_config
+  compute_direct_urls
+
+  if service_running; then
+    _service_running=true
+  else
+    _service_running=false
+  fi
+
+  if autostart_enabled; then
+    _autostart=true
+  else
+    _autostart=false
+  fi
+
+  if config_modified; then
+    _config_modified=true
+  else
+    _config_modified=false
+  fi
+
+  if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
+    _merge_mode=true
+  else
+    _merge_mode=false
+  fi
+
+  if backend_path_is_default; then
+    _backend_path_is_default=true
+  else
+    _backend_path_is_default=false
+  fi
+
+  printf '{'
+  printf '"serviceRunning":%s,' "$_service_running"
+  printf '"autostart":%s,' "$_autostart"
+  printf '"configModified":%s,' "$_config_modified"
+  printf '"mergeMode":%s,' "$_merge_mode"
+  printf '"directUrl":"%s",' "$(json_escape "$DIRECT_ADDR")"
+  printf '"frontUrl":"%s",' "$(json_escape "$FRONT_ADDR")"
+  printf '"backUrl":"%s",' "$(json_escape "$BACK_ADDR")"
+  printf '"openUrl":"%s",' "$(json_escape "$OPEN_URL")"
+  printf '"backendPathIsDefault":%s' "$_backend_path_is_default"
+  printf '}\n'
+}
+
+# ---------- 动作 ----------
+toggle_autostart() {
+  if autostart_enabled; then
+    touch "$sub_store_path/manual"
+    echo "已禁用开机自启 (下次重启不再自动启动, 可手动执行启动)"
+  else
+    rm -f "$sub_store_path/manual"
+    echo "已启用开机自启 (下次重启自动启动)"
+  fi
+}
+
+# 写入用户实际生效的 env 文件 (/data/local/sub_store/scripts/sub_store.env);
+# 老环境没有用户 env 时先落一份默认配置再替换, 避免改到会被模块更新覆盖的内置文件
+regenerate_backend_path() {
+  load_config
+  local target="$CONFIG_DIR/sub_store.env"
+  if [ ! -f "$target" ]; then
+    mkdir -p "$CONFIG_DIR" 2>/dev/null
+    cp -f "$SCRIPTS_DIR/sub_store.env" "$target" 2>/dev/null || {
+      err "无法创建 $target"
+      return 1
+    }
+  fi
+  local new_path
+  new_path=$(gen_backend_path)
+  if [ -z "$new_path" ]; then
+    err "生成随机路径失败"
+    return 1
+  fi
+  sed -i "s|^SUB_STORE_FRONTEND_BACKEND_PATH=.*|SUB_STORE_FRONTEND_BACKEND_PATH=\"$new_path\"|" "$target"
+  echo "已生成新的 SUB_STORE_FRONTEND_BACKEND_PATH:"
+  echo "  $new_path"
+  echo "已写入: $target"
+  echo "自动重启 Sub-Store 以应用新路径 ..."
+  restart_service
+  echo "重启完成"
+}
 
 # ---------- 下载: curl 优先, 回退 wget ----------
 download() {  # $1=url  $2=输出文件路径
@@ -99,6 +229,11 @@ fetch_text() {  # $1=url
     wget -qO- "$1" 2>/dev/null
   fi
 }
+
+# ---------- 输出 ----------
+info() { echo "[Info] $1"; }
+warn() { echo "[Warn] $1"; }
+err()  { echo "[Error] $1"; }
 
 # ---------- 服务控制 ----------
 restart_service() { sh "$SCRIPTS_DIR/sub_store.service" restart; }
