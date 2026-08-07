@@ -138,6 +138,7 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 
 - 手动触发：Actions → Build Sub-Store module → Run workflow，可选 ABI 与版本号
 - 推送 `v*` tag：自动构建并发布 release
+- workflow 会额外 checkout [Delusions6515/Sub-Store-Module-WebUI](https://github.com/Delusions6515/Sub-Store-Module-WebUI)，构建后自动写入模块包内 `webroot/`
 - 所有组件在线获取，无需本地参考文件
   - node 二进制来自 [Delusions6515/node-android-build](https://github.com/Delusions6515/node-android-build) 的 release
 
@@ -147,12 +148,21 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 ./build.sh                    # 版本名取最近 git tag (如 v1.0.0), arm64-v8a
 ./build.sh 1.0.0              # 指定版本名覆盖 tag
 TARGET_ABI=armeabi-v7a ./build.sh 1.0.0   # 指定 ABI
+BUILD_TYPE=hotfix ./build.sh 1.0.1-hotfix1
 NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
+WEBUI_REPO_DIR=../Sub-Store-Module-WebUI ./build.sh
+WEBUI_DIST_DIR=/path/to/webui/dist ./build.sh
 ```
 
 - 版本命名参考 ZygiskNext（`module.prop` 中 `version`/`versionCode` 为占位符，不硬编码）：
   构建时自动生成 `version=1.0.0 (<git提交数>-<短hash>-release)`、`versionCode=<git提交数>`；
   版本名取最近 git tag（自动去 `v` 前缀），可用参数/`BUILD_TYPE` 覆盖
+
+- WebUI 集成：
+  - 默认查找相邻仓库 `../Sub-Store-Module-WebUI`，执行 `pnpm install` + `pnpm build`
+  - 构建产物会自动复制到模块最终包内的 `webroot/`
+  - 只想复用现成前端产物时，可用 `WEBUI_DIST_DIR=/path/to/dist` 直接指定 dist 目录
+  - 若未发现 WebUI 仓库/产物，则跳过 WebUI 打包，不影响纯模块构建
 
 - 组件来源：
   - **node**：始终使用官方最新 LTS 版本——从 `nodejs.org` 解析当前 LTS（如 `24.19.0`），
@@ -164,6 +174,7 @@ NODE_BIN_PATH=~/node ./build.sh            # 本地 node 二进制 (调试用)
   - **前端**：[sub-store-org/Sub-Store-Front-End](https://github.com/sub-store-org/Sub-Store-Front-End) latest release
   - **http-meta**：[xream/http-meta](https://github.com/xream/http-meta) latest release + [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) 稳定版内核
 - 构建产物默认输出到当前目录的 `build/` 下（可用 `OUT_DIR` 覆盖）
+- `-hotfix` 后缀按稳定版修订处理：会进入正式 release/update JSON 渠道，不会被当成 prerelease
 - 自动下载官方 `module_installer.sh` 生成 META-INF（恢复模式刷入用），失败时跳过（管理器安装不受影响）
 
 ## 许可

@@ -68,18 +68,10 @@ jobs:
           echo "publish-update-json=$publish_update_json" >> "$GITHUB_OUTPUT"
           echo "build-type=$build_type" >> "$GITHUB_OUTPUT"
 
-  build:
+  webui:
     needs: metadata
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        abi: ${{ fromJSON(needs.metadata.outputs.abi-matrix) }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
-
       - name: Checkout WebUI repo
         uses: actions/checkout@v7
         with:
@@ -98,6 +90,38 @@ jobs:
           cache: pnpm
           cache-dependency-path: Sub-Store-Module-WebUI/pnpm-lock.yaml
 
+      - name: Build WebUI
+        run: |
+          cd Sub-Store-Module-WebUI
+          pnpm install --frozen-lockfile
+          pnpm build
+          ls -lh dist/
+
+      - name: Upload WebUI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sub-store-webui-dist
+          path: Sub-Store-Module-WebUI/dist
+          if-no-files-found: error
+
+  build:
+    needs: [metadata, webui]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: ${{ fromJSON(needs.metadata.outputs.abi-matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
+
+      - name: Download WebUI artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: sub-store-webui-dist
+          path: webui-dist
+
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils
 
@@ -105,7 +129,7 @@ jobs:
         env:
           TARGET_ABI: ${{ matrix.abi }}
           BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
-          WEBUI_REPO_DIR: ${{ github.workspace }}/Sub-Store-Module-WebUI
+          WEBUI_DIST_DIR: ${{ github.workspace }}/webui-dist
         run: |
           ./build.sh "${{ needs.metadata.outputs.version }}"
           ls -lh build/*.zip
