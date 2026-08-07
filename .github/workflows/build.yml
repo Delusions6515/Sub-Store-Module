@@ -46,9 +46,12 @@ jobs:
           is_prerelease=false
           publish_update_json=false
           build_type=release
-          if [[ "$version" == *-* ]]; then
+          # hotfix 属于稳定版修订，不按 prerelease 处理；alpha/beta/rc 才算预发布。
+          if [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
             is_prerelease=true
             build_type=prerelease
+          elif [[ "$version" == *-hotfix* ]]; then
+            build_type=hotfix
           fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
@@ -77,6 +80,24 @@ jobs:
         with:
           fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
 
+      - name: Checkout WebUI repo
+        uses: actions/checkout@v7
+        with:
+          repository: Delusions6515/Sub-Store-Module-WebUI
+          path: Sub-Store-Module-WebUI
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: Sub-Store-Module-WebUI/pnpm-lock.yaml
+
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils
 
@@ -84,6 +105,7 @@ jobs:
         env:
           TARGET_ABI: ${{ matrix.abi }}
           BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
+          WEBUI_REPO_DIR: ${{ github.workspace }}/Sub-Store-Module-WebUI
         run: |
           ./build.sh "${{ needs.metadata.outputs.version }}"
           ls -lh build/*.zip
