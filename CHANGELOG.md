@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.7 (45-fbf2ee8-release)
+- chore(docs): update README.md
+- feat: 添加自动生成 SUB_STORE_FRONTEND_BACKEND_PATH 功能（/<20~24位随机字符串>）
+
 ## v2.0.6 (43-33c9fe4-release)
 - fix: 修复开机误报"配置已修改但未重启"
 - feat(action): 添加配置修改提醒功能，提示用户重启以应用新配置
@@ -25,18 +29,6 @@
   - 之前拼成后端端口+前缀导致前端连不上后端 (后端分离模式无前缀)
   - service 导入: SUB_STORE_BACKEND_MERGE true-only 导出, 设 false 也能关闭合并
   - (后端 truthy 判断, xream 模块设 false 同样会合并)
-
-## v2.0.3 (33-572a7de-release)
-- service: su 降权加可用性实测 (su 2000 -c id 成功才采用)
-  - command -v su 存在 != su 2000 -c 可用 (不同 root 方案行为可能不同),
-  - 与 setpriv 同原则: 功能实测成功才进 su 模式, 失败回退 root 并告警
-  - su 可用日志级别从 Warn 降为 Info (正常降权路径); 均不可用才 Warn
-  - 沙盒验证 3 场景: su 可用/su 不可用/setpriv 正常 均正确
-- workflow: 修复并行 job 共用 release tag 的创建竞态 (422 already_exists)
-  - 4 个 ABI job 并行 Upload release 用同一 tag, 同时 GET 不到 -> 同时 POST,
-  - 后到者报 already_exists (x86 构建最慢稳定失败)
-  - 新增 Ensure release step: gh release create 抢建, 并发失败 || true 消化;
-  - Upload 步骤只做 allowUpdates 更新上传
 
 ### Full Changelog
   - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
