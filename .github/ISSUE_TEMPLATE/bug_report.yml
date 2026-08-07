@@ -21,11 +21,11 @@ body:
           required: true
     validations:
       required: true
-  - type: input
+  - type: textarea
     id: device
     attributes:
       label: 设备与环境信息
-      description: 设备型号 / Android 版本 / Root 方案及版本（管理器「模块信息」页的截图一般就够）
+      description: 设备型号 / Android 版本 / Root 方案及版本（管理器的截图一般就够）
       placeholder: "例如: Pixel 7 / Android 14 / Magisk 28100"
     validations:
       required: true
@@ -47,7 +47,6 @@ body:
         - `sub_store.config` 中的 `run_as_user` 等
         - 涉及 token / 推送密钥等敏感信息请自行脱敏
       placeholder: "例如: SUB_STORE_BACKEND_MERGE 已注释 (分离模式), 端口改为 4001"
-      render: shell
     validations:
       required: false
   - type: textarea
@@ -59,7 +58,6 @@ body:
         1. 打开 ...
         2. 点击 ...
         3. 出现 ...
-      render: shell
     validations:
       required: true
   - type: textarea
@@ -85,6 +83,5 @@ body:
         - `/data/local/sub_store/run/*.log`
         - logcat 相关片段 (`logcat | grep -i substore`)
         内容过长可贴 gist 链接
-      render: shell
     validations:
       required: false

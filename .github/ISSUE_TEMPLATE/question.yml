@@ -18,12 +18,20 @@ body:
           required: true
     validations:
       required: true
-  - type: input
+  - type: textarea
     id: env
     attributes:
-      label: 环境信息
-      description: 设备型号 / Android 版本 / Root 方案 (Magisk, KernelSU, APatch) / 模块版本
-      placeholder: "例如: 小米 14 / Android 15 / KernelSU 12700 / v2.0.7"
+      label: 设备与环境信息
+      description: 设备型号 / Android 版本 / Root 方案及版本（管理器的截图一般就够）
+      placeholder: "例如: Pixel 7 / Android 14 / Magisk 28100"
+    validations:
+      required: true
+  - type: input
+    id: module_version
+    attributes:
+      label: 模块版本
+      description: 管理器内显示的模块版本号
+      placeholder: "例如: v2.0.7 (45-fbf2ee8-release)"
     validations:
       required: true
   - type: textarea
