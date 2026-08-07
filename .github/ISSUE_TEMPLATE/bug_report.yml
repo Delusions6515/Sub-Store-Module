@@ -1,0 +1,90 @@
+name: 🐛 Bug 反馈
+description: 报告异常行为或崩溃问题
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！**仅受理最新版本仍存在的 Bug**，旧版本请先升级到最新版再反馈。
+        请尽量完整填写以下信息，方便快速定位问题。
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 检查清单
+      options:
+        - label: 我已搜索过现有 Issues，没有重复
+          required: true
+        - label: 我已阅读 README 并尝试过其中提到的解决方案
+          required: true
+        - label: 我已使用最新版本模块（旧版本的 Bug 不受理）
+          required: true
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备与环境信息
+      description: 设备型号 / Android 版本 / Root 方案及版本（管理器「模块信息」页的截图一般就够）
+      placeholder: "例如: Pixel 7 / Android 14 / Magisk 28100"
+    validations:
+      required: true
+  - type: input
+    id: module_version
+    attributes:
+      label: 模块版本
+      description: 管理器内显示的模块版本号，必须为最新版本
+      placeholder: "例如: v2.0.7 (45-fbf2ee8-release)"
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: 相关配置
+      description: |
+        与问题相关的配置 (默认配置可留空，或写"默认"):
+        - `sub_store.env` 中改过的变量 (合并/分离模式、端口、代理、`SUB_STORE_FRONTEND_BACKEND_PATH` 等)
+        - `sub_store.config` 中的 `run_as_user` 等
+        - 涉及 token / 推送密钥等敏感信息请自行脱敏
+      placeholder: "例如: SUB_STORE_BACKEND_MERGE 已注释 (分离模式), 端口改为 4001"
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 一步步描述如何触发问题
+      placeholder: |
+        1. 打开 ...
+        2. 点击 ...
+        3. 出现 ...
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你期望发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么 (报错信息等)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: |
+        相关日志有助于定位问题（请自行脱敏）:
+        - `/data/local/sub_store/run/*.log`
+        - logcat 相关片段 (`logcat | grep -i substore`)
+        内容过长可贴 gist 链接
+      render: shell
+    validations:
+      required: false

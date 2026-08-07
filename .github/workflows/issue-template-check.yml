@@ -1,0 +1,93 @@
+name: Issue 模板检查
+
+on:
+  issues:
+    types: [opened, edited]
+  schedule:
+    # 每周一 00:00 (Asia/Shanghai) = 周日 16:00 UTC
+    # GitHub Actions 的 cron 固定用 UTC, 如需改时间只动这里
+    - cron: "0 16 * * 0"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  # ---------- 检查并标记未遵循模板的 Issue ----------
+  check-template:
+    if: github.event_name != 'schedule' && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查模板遵循情况并打标签
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          LABEL="未遵循模板"
+          NUMBER="${{ github.event.issue.number }}"
+          BODY_FILE=$(mktemp)
+          trap 'rm -f "$BODY_FILE"' EXIT
+          gh issue view "$NUMBER" --json body -q .body > "$BODY_FILE"
+
+          # 提取指定小节的内容 (下一行起, 到下一个 ### 标题为止), 判断是否非空
+          # 表单模板渲染后每个字段都是 "### 字段名" 标题 + 内容, 内容全空 = 未认真填写
+          section_nonempty() {
+            local label="$1" content
+            content=$(awk -v l="$label" '
+              $0 ~ "^### " l "$" { found=1; next }
+              /^### / && found { exit }
+              found { print }
+            ' "$BODY_FILE")
+            [ -n "$(printf '%s' "$content" | tr -d '[:space:]')" ]
+          }
+
+          # 任一模板的必填小节非空即视为遵循模板
+          conform=0
+          if section_nonempty "设备与环境信息" && section_nonempty "复现步骤" && section_nonempty "期望行为"; then
+            conform=1 # bug_report
+          fi
+          if section_nonempty "需求描述"; then
+            conform=1 # feature_request
+          fi
+          if section_nonempty "问题描述"; then
+            conform=1 # question
+          fi
+          if section_nonempty "内容"; then
+            conform=1 # other
+          fi
+
+          has_label=$(gh issue view "$NUMBER" --json labels -q '.labels[].name' | grep -Fx "$LABEL" || true)
+
+          if [ "$conform" -eq 1 ]; then
+            if [ -n "$has_label" ]; then
+              gh issue edit "$NUMBER" --remove-label "$LABEL"
+              gh issue comment "$NUMBER" --body "已检测到内容符合模板要求，已移除「$LABEL」标记，感谢补充！"
+            fi
+          else
+            gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板" --force
+            if [ -z "$has_label" ]; then
+              gh issue edit "$NUMBER" --add-label "$LABEL"
+              gh issue comment "$NUMBER" --body "该 Issue 未遵循模板（必填内容缺失），编辑补充后会自动移除标记；未修改的 Issue 将在每周一自动关闭。"
+            fi
+          fi
+
+  # ---------- 每周一 0 点关闭未遵循模板的 Issue ----------
+  weekly-close:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 关闭未遵循模板的 Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          LABEL="未遵循模板"
+          # 保证 label 存在 (首次运行时可能还没被 check-template 创建过)
+          gh label create "$LABEL" --color d73a4a --description "未遵循 Issue 模板" --force
+          gh issue list --state open --label "$LABEL" --json number -q '.[].number' | while read -r n; do
+            gh issue comment "$n" --body "该 Issue 因未遵循模板且未在期限内修改，已自动关闭。如需继续反馈，请重新提交并按模板填写。"
+            gh issue close "$n"
+            echo "已关闭 #$n"
+          done

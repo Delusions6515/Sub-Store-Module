@@ -1,0 +1,43 @@
+name: ❓ 使用求助
+description: 安装 / 配置 / 使用过程中的问题
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        遇到问题先看看 README 和已有 Issues，也许已经有人问过。
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 检查清单
+      options:
+        - label: 我已搜索过现有 Issues，没有重复
+          required: true
+        - label: 我已阅读 README 并尝试过其中提到的解决方案
+          required: true
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 环境信息
+      description: 设备型号 / Android 版本 / Root 方案 (Magisk, KernelSU, APatch) / 模块版本
+      placeholder: "例如: 小米 14 / Android 15 / KernelSU 12700 / v2.0.7"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 具体遇到了什么问题
+      placeholder: "例如: 安装后浏览器打不开 127.0.0.1:3001..."
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试的操作
+      description: 你试过哪些排查方法 (可选)
+    validations:
+      required: false

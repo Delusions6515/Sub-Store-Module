@@ -1,0 +1,12 @@
+name: 📦 其他
+description: 不属于上面任何分类的内容
+title: "[Other]: "
+labels: []
+body:
+  - type: textarea
+    id: content
+    attributes:
+      label: 内容
+      description: 请描述你想说的事情
+    validations:
+      required: true

@@ -1,0 +1,2 @@
+# 禁止空白 Issue, 强制从模板创建
+blank_issues_enabled: false
