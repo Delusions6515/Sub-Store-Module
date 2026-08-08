@@ -46,10 +46,12 @@ jobs:
           is_prerelease=false
           publish_update_json=false
           build_type=release
-          # hotfix 分支先沿用旧发版链路：这里只区分 prerelease。
-          if [[ "$version" == *-* ]]; then
+          # hotfix 属于稳定版修订，不按 prerelease 处理；alpha/beta/rc 才算预发布。
+          if [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
             is_prerelease=true
             build_type=prerelease
+          elif [[ "$version" == *-hotfix* ]]; then
+            build_type=hotfix
           fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
