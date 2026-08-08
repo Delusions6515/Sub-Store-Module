@@ -22,7 +22,7 @@ TIMEOUT_BIN=$(command -v timeout 2>/dev/null || echo "")
 # 低层 UI 辅助
 # ============================================================
 
-# 读取音量键: 0=VOL+ 1=VOL- 2=超时
+# 读取音量键: 0=VOL+ 1=VOL- 2=超时 3=BACK(退出)
 # 内部消费 UP 等无关事件, 避免一次按键导致菜单重复刷新
 read_vol() {
   local line=""
@@ -35,6 +35,7 @@ read_vol() {
     case "$line" in
       *KEY_VOLUMEUP*DOWN*)   return 0 ;;
       *KEY_VOLUMEDOWN*DOWN*) return 1 ;;
+      *KEY_BACK*DOWN*)       return 3 ;;
       "")                    return 2 ;;
       *) : ;; # UP 等其它事件, 忽略并继续读取
     esac
@@ -42,9 +43,12 @@ read_vol() {
 }
 
 # 清屏: 优先 clear 命令 (无 clear 的环境也能用换行滚屏达到刷新效果)
+# Magisk 管理器终端不支持 ANSI 转义 (clear 会输出 \033[H\033[J 原文)
 clear_screen() {
-  if command -v clear >/dev/null 2>&1; then
-    clear
+  if [ "${APATCH:-}" = "true" -o "${KSU:-}" = "true" ]; then
+    if command -v clear >/dev/null 2>&1; then
+      clear
+    fi
   else
     echo ""
   fi
@@ -121,6 +125,11 @@ pick() {
           echo "[超时] 5 分钟未检测到按键, 已退出"
           exit 0
         fi
+        ;;
+      3) # 管理器返回键
+        echo ""
+        echo "已退出"
+        exit 0
         ;;
       *) : ;; # 其它输入事件, 忽略
     esac
