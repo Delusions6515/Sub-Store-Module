@@ -154,17 +154,19 @@ jobs:
       - name: Generate update JSON (各架构分开) + CHANGELOG.md
         env:
           TAG: ${{ github.ref_name }}
+          BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
         run: |
-          VER="${TAG#v}"
+          VER="${TAG#v}"   # version 不带 v, 与 module.prop 保持一致
           CODE=$(git rev-list HEAD --count)
           SHA=$(git rev-parse --short HEAD)
           # 生成到独立目录 json-out/, 避免与后续 gh-pages checkout 的 untracked 文件冲突
           mkdir -p json-out
           for abi in arm64-v8a armeabi-v7a x86_64 x86; do
-            ZIP="sub-store-module-${VER}-${CODE}-${SHA}-release-${abi}.zip"
+            # zipUrl 文件名里的构建类型与 release 资产的命名对齐 (release/hotfix)
+            ZIP="sub-store-module-${VER}-${CODE}-${SHA}-${BUILD_TYPE}-${abi}.zip"
             cat > "json-out/update-${abi}.json" <<JSON
           {
-            "version": "$TAG",
+            "version": "$VER",
             "versionCode": $CODE,
             "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/$TAG/$ZIP",
             "changelog": "https://raw.githubusercontent.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md"
