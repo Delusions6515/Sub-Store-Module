@@ -80,6 +80,7 @@ else
   else
     ui_print "- 已选择跳过: 保留现有二进制"
     ui_print "- 组件更新请使用管理器内的 [执行] 按钮"
+    ui_print "- 或在管理器内打开 WebUI 更新页面"
   fi
 fi
 rm -rf "$MODPATH/sub_store"
@@ -129,3 +130,4 @@ ui_print "- 安装完成"
 ui_print "- 重启后 Sub-Store 将自动启动 (低权限 shell 用户运行):"
 ui_print "  http://127.0.0.1:3001  (默认合并端口, HTTP-META :9876)"
 ui_print "- 管理器内点击 [执行] 可按音量键选择更新"
+ui_print "- 或在管理器内打开 WebUI 选择更新"
