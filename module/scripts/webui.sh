@@ -20,13 +20,13 @@ case "$CMD" in
     print_status_json
     ;;
   start)
-    sh "$SCRIPTS_DIR/sub_store.service" start
+    sh "$SCRIPTS_DIR/sub_store.service" start >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   stop)
-    sh "$SCRIPTS_DIR/sub_store.service" stop
+    sh "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   restart)
-    sh "$SCRIPTS_DIR/sub_store.service" restart
+    sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   log)
     # 操作日志尾部: run.log / run_error.log (start.sh、inotify 追写的服务操作输出)
