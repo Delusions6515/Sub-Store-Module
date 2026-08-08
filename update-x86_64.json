@@ -1,6 +1,6 @@
-  {
-    "version": "v2.0.7",
-    "versionCode": 45,
-    "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/v2.0.7/sub-store-module-2.0.7-45-fbf2ee8-release-x86_64.zip",
-    "changelog": "https://github.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md",
-  }
+{
+  "version": "v2.0.7-hotfix.1",
+  "versionCode": 54,
+  "zipUrl": "https://github.com/Delusions6515/Sub-Store-Module/releases/download/v2.0.7-hotfix.1/sub-store-module-2.0.7-hotfix.1-54-94dc6a8-release-x86_64.zip",
+  "changelog": "https://raw.githubusercontent.com/Delusions6515/Sub-Store-Module/gh-pages/CHANGELOG.md"
+}

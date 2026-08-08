@@ -31,5 +31,5 @@
   - (后端 truthy 判断, xream 模块设 false 同样会合并)
 
 ### Full Changelog
-  - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
+- [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
 
