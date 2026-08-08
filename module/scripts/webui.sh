@@ -49,27 +49,32 @@ case "$CMD" in
     regenerate_backend_path
     ;;
   update-all)
-    NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"       || exit 1
-    NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"      || exit 1
-    NO_RESTART=1 sh "$SCRIPTS_DIR/update_http_meta.sh" all || exit 1
+    # 更新输出统一写入 run.log（配合 rotate_run_log 归档，前端可只读本次更新日志）
+    NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"       >>"$run_path/run.log" 2>>"$run_path/run_error.log" || exit 1
+    NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"      >>"$run_path/run.log" 2>>"$run_path/run_error.log" || exit 1
+    NO_RESTART=1 sh "$SCRIPTS_DIR/update_http_meta.sh" all >>"$run_path/run.log" 2>>"$run_path/run_error.log" || exit 1
     restart_service
     ;;
   update-sub-store)
-    NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"  || exit 1
-    NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1
+    NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"  >>"$run_path/run.log" 2>>"$run_path/run_error.log" || exit 1
+    NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh" >>"$run_path/run.log" 2>>"$run_path/run_error.log" || exit 1
     restart_service
     ;;
   update-backend)
-    sh "$SCRIPTS_DIR/update_backend.sh"
+    sh "$SCRIPTS_DIR/update_backend.sh" >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   update-frontend)
-    sh "$SCRIPTS_DIR/update_frontend.sh"
+    sh "$SCRIPTS_DIR/update_frontend.sh" >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   update-http-meta)
-    sh "$SCRIPTS_DIR/update_http_meta.sh" "$MODE"
+    sh "$SCRIPTS_DIR/update_http_meta.sh" "$MODE" >>"$run_path/run.log" 2>>"$run_path/run_error.log"
+    ;;
+  log-size)
+    # 输出 run.log 当前字节数，供前端轮询判断更新/操作是否完成（日志停止增长即结束）
+    wc -c < "$run_path/run.log" 2>/dev/null || echo 0
     ;;
   *)
-    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
+    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-size|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
     exit 1
     ;;
 esac
