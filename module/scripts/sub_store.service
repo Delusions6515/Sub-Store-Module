@@ -143,12 +143,16 @@ start_bin() {
 stop_service() {
   log Warn "stopping ${bin_name} service."
   # 两个进程都由 sub_store_node 运行, 一并结束
-  kill -15 $(pidof "$bin_name") 2>/dev/null
+  _pids=$(pidof "$bin_name" 2>/dev/null)
+  [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
   # 等待 node 退出并让 http-meta 清理 mihomo 子进程
   sleep 2
-  # 兜底: 结束残留的 mihomo 内核与 node 进程
-  kill -15 $(pidof http-meta) 2>/dev/null
-  kill -9 $(pidof "$bin_name" http-meta) 2>/dev/null
+  # 兜底: 结束残留的 mihomo 内核与 node 进程 (pidof 为空时跳过, 避免 kill 无参数报错导致退出码非 0)
+  _pids="$(pidof "$bin_name" 2>/dev/null) $(pidof http-meta 2>/dev/null)"
+  [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
+  _pids="$(pidof "$bin_name" 2>/dev/null) $(pidof http-meta 2>/dev/null)"
+  [ -n "$_pids" ] && kill -9 $_pids 2>/dev/null
+  return 0
 }
 
 case "$1" in
