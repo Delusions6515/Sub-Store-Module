@@ -2,7 +2,7 @@
 # ============================================================
 # Sub-Store for Android - WebUI 脚本入口
 # 用法:
-#   webui.sh status|start|stop|restart|toggle-autostart|log|log-reset|
+#   webui.sh status|start|stop|restart|toggle-autostart|log|
 #            regenerate-backend-path|update-all|update-sub-store|
 #            update-backend|update-frontend|update-http-meta [mode]
 # 复用 sub_store.service 与各 update_*.sh, 不重复实现更新逻辑
@@ -20,21 +20,20 @@ case "$CMD" in
     print_status_json
     ;;
   start)
+    # 先轮转操作日志，再以追加模式调用 service（输出写入全新的 run.log）
+    rotate_run_log
     sh "$SCRIPTS_DIR/sub_store.service" start >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   stop)
+    rotate_run_log
     sh "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   restart)
+    rotate_run_log
     sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
-  log-reset)
-    # 归档当前操作日志（与开机 start.sh 行为一致），新 run.log 只含后续操作输出
-    mv "$run_path/run.log" "$run_path/run.log.bak" >/dev/null 2>&1
-    mv "$run_path/run_error.log" "$run_path/run_error.log.bak" >/dev/null 2>&1
-    ;;
   log)
-    # 输出 run.log / run_error.log 全部内容（配合 log-reset：归档后新文件即本次操作日志）
+    # 输出 run.log / run_error.log 全部内容（配合 rotate_run_log，内容即最近一次操作输出）
     if [ -f "$run_path/run.log" ]; then
       tail -n 100 "$run_path/run.log"
     fi
@@ -70,7 +69,7 @@ case "$CMD" in
     sh "$SCRIPTS_DIR/update_http_meta.sh" "$MODE"
     ;;
   *)
-    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-reset|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
+    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
     exit 1
     ;;
 esac

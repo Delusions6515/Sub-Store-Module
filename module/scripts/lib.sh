@@ -5,6 +5,14 @@
 # 注意: 运行环境为 busybox ash, 勿使用 bash 数组等特性
 # ============================================================
 
+# ---------- 操作日志轮转 ----------
+# 归档 run.log / run_error.log 为 .bak，新文件只含后续操作输出。
+# 必须在重定向打开日志文件之前调用（调用方以 >>run.log 重定向时，mv 后 fd 仍指向旧文件）。
+rotate_run_log() {
+  mv "$run_path/run.log" "$run_path/run.log.bak" >/dev/null 2>&1
+  mv "$run_path/run_error.log" "$run_path/run_error.log.bak" >/dev/null 2>&1
+}
+
 # ---------- 配置加载 ----------
 # 优先使用用户配置 (/data/local/sub_store/scripts/), 否则使用模块内置默认配置
 # sub_store.config 仅含模块特有配置; sub_store.env 为服务环境变量 (Docker 版一致)

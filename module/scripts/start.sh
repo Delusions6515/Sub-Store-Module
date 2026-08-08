@@ -29,7 +29,6 @@ mkdir -p "$run_path"
 
 # 存在 manual 文件时跳过自动启动
 if [ ! -f "$sub_store_path/manual" ]; then
-  mv "$run_path/run.log" "$run_path/run.log.bak" >/dev/null 2>&1
-  mv "$run_path/run_error.log" "$run_path/run_error.log.bak" >/dev/null 2>&1
+  rotate_run_log
   sh "$SCRIPTS_DIR/sub_store.service" start >>"$run_path/run.log" 2>>"$run_path/run_error.log"
 fi
