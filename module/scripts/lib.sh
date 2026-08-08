@@ -95,6 +95,10 @@ backend_path_is_default() {
   [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "$DEFAULT_BACKEND_PATH" ]
 }
 
+run_user_is_root() {
+  [ "$run_as_user" != "shell" ] && [ "$run_as_user" != "2000" ]
+}
+
 compute_direct_urls() {
   if [ "${SUB_STORE_BACKEND_MERGE:-}" = "true" ]; then
     # 合并模式: 单端口, 前端带 ?api= 指向后端路径
@@ -166,6 +170,12 @@ print_status_json() {
     _backend_path_is_default=false
   fi
 
+  if run_user_is_root; then
+    _run_user_is_root=true
+  else
+    _run_user_is_root=false
+  fi
+
   printf '{'
   printf '"serviceRunning":%s,' "$_service_running"
   printf '"autostart":%s,' "$_autostart"
@@ -175,7 +185,8 @@ print_status_json() {
   printf '"frontUrl":"%s",' "$(json_escape "$FRONT_ADDR")"
   printf '"backUrl":"%s",' "$(json_escape "$BACK_ADDR")"
   printf '"openUrl":"%s",' "$(json_escape "$OPEN_URL")"
-  printf '"backendPathIsDefault":%s' "$_backend_path_is_default"
+  printf '"backendPathIsDefault":%s,' "$_backend_path_is_default"
+  printf '"runUserIsRoot":%s' "$_run_user_is_root"
   printf '}\n'
 }
 
