@@ -44,6 +44,10 @@ config_modified() {
   fi
 }
 
+run_user_is_root() {
+  [ "$run_as_user" != "shell" ] && [ "$run_as_user" != "2000" ]
+}
+
 # ---------- SUB_STORE_FRONTEND_BACKEND_PATH ----------
 # 模块内置默认值 (与 sub_store.env 保持一致, 改默认值时两处都要改)
 # 首次安装时会被随机替换; 若检测到仍在使用该默认值, TUI (action.sh) 会告警

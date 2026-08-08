@@ -82,6 +82,13 @@ draw_menu() {
     echo "  [!] SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值"
     echo "      建议用下方菜单项重新生成随机路径"
   fi
+  # 安全提醒: 运行用户为 root 时告警
+  if run_user_is_root; then
+    echo "  [!] 当前运行用户为 root, 建议改为 shell 用户"
+    echo "      可在 sub_store.config 中修改 run_as_user"
+    echo "      shell 用户如果网络访问受限，可在 sub_store.env 中配置代理"
+    echo "      SUB_STORE_BACKEND_DEFAULT_PROXY=<你的代理软件代理地址>"
+  fi
   echo "---------------------------------------"
   echo ""
   echo "  --- $title ---"
