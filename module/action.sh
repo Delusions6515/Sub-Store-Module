@@ -306,9 +306,9 @@ main_menu() {
       "退出"
     case "$MENU_SEL" in
       1) open_address ;;
-      2) sh "$SCRIPTS_DIR/sub_store.service" start ;;
-      3) sh "$SCRIPTS_DIR/sub_store.service" stop ;;
-      4) sh "$SCRIPTS_DIR/sub_store.service" restart ;;
+      2) sh "$SCRIPTS_DIR/sub_store.service" start   >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+      3) sh "$SCRIPTS_DIR/sub_store.service" stop    >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+      4) sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
       5) regenerate_backend_path ;;
       6) toggle_autostart ;;
       7) update_menu ;;

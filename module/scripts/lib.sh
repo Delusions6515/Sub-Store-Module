@@ -101,5 +101,10 @@ fetch_text() {  # $1=url
 }
 
 # ---------- 服务控制 ----------
-restart_service() { sh "$SCRIPTS_DIR/sub_store.service" restart; }
-stop_service()     { sh "$SCRIPTS_DIR/sub_store.service" stop; }
+# 操作日志统一写入 run.log / run_error.log（与 webui.sh / start.sh / inotify 一致）
+restart_service() {
+  sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log"
+}
+stop_service() {
+  sh "$SCRIPTS_DIR/sub_store.service" stop >>"$run_path/run.log" 2>>"$run_path/run_error.log"
+}
