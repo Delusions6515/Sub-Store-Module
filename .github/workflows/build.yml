@@ -11,6 +11,9 @@ on:
       version:
         description: 基础版本号 (留空则取 git tag, 如 v1.0.0)
         default: ''
+      node-version:
+        description: '内置 node 版本 (留空取最新 LTS, 如 22.14.0)'
+        default: 'lts'
   push:
     tags: ['v*']
 
@@ -46,8 +49,10 @@ jobs:
           is_prerelease=false
           publish_update_json=false
           build_type=release
-          # hotfix 属于稳定版修订，不按 prerelease 处理；alpha/beta/rc 才算预发布。
-          if [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
+          # 手动运行视为 canary 构建; hotfix 属于稳定版修订，alpha/beta/rc 才算预发布。
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            build_type=canary
+          elif [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
             is_prerelease=true
             build_type=prerelease
           elif [[ "$version" == *-hotfix* ]]; then
@@ -125,11 +130,20 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip unzip xz-utils
 
+      # 组件缓存 (bin/ 由 build.sh 自动补齐); 键含 ABI 与 ref, 新 tag 自动刷新,
+      # 强制刷新可删除 Actions 缓存 (Caches 页) 或清空 bin/ 后重跑。
+      - name: Cache bin/
+        uses: actions/cache@v6
+        with:
+          path: bin
+          key: components-${{ runner.os }}-${{ matrix.abi }}-${{ github.ref }}
+
       - name: Build module
         env:
           TARGET_ABI: ${{ matrix.abi }}
           BUILD_TYPE: ${{ needs.metadata.outputs.build-type }}
           WEBUI_DIST_DIR: ${{ github.workspace }}/webui-dist
+          NODE_VERSION: ${{ inputs.node-version }}
         run: |
           ./build.sh "${{ needs.metadata.outputs.version }}"
           ls -lh build/*.zip

@@ -18,11 +18,18 @@
 #   NODE_REPO        node 二进制来源仓库 (默认 Delusions6515/node-android-build,
 #                    始终使用官方最新 LTS: 从该仓库 node-android-<arch>-<major> release
 #                    取对应版本 tar.xz, 尚未构建时回退该大版本已有最高版本)
-#   NODE_DIST_URL    直接指定 node tar.xz 下载地址 (覆盖 NODE_REPO)
-#   NODE_BIN_PATH    直接指定本地 node 二进制文件 (覆盖上面两者, 本地调试用)
+#   NODE_VERSION     指定内置 node 版本 (如 22.14.0; lts 或留空取官方最新 LTS)
+#   NODE_DIST_URL    直接指定 node tar.xz 下载地址 (覆盖 NODE_REPO/NODE_VERSION)
+#   NODE_BIN_PATH    直接指定本地 node 二进制文件 (覆盖上面所有, 本地调试用)
+#   BUILD_TYPE       构建类型: release(默认)|hotfix|prerelease|canary
+#   SKIP_VERSION_CHECK  设为 1 跳过新旧版本对比 (默认对比上游最新, 过旧自动刷新)
 #   WEBUI_REPO_DIR   WebUI 源码仓库目录 (默认 ../Sub-Store-Module-WebUI)
 #   WEBUI_DIST_DIR   直接指定已构建好的 WebUI dist 目录 (覆盖 WEBUI_REPO_DIR)
 #   OUT_DIR          输出目录 (默认 ./build)
+#
+# 组件目录 $REPO_DIR/bin/ (结构同 sub_store/bin, 含版本文件):
+#   构建时优先使用, 缺失或过旧的组件自动下载最新版到 bin/ (本地 / CI 缓存复用);
+#   离线开发可用 SKIP_VERSION_CHECK=1 跳过对比, 直接用 bin/ 现状。
 # ============================================================
 set -euo pipefail
 
@@ -32,6 +39,7 @@ WEBUI_REPO_DIR="${WEBUI_REPO_DIR:-$(cd "$REPO_DIR/.." && pwd)/Sub-Store-Module-W
 WEBUI_DIST_DIR="${WEBUI_DIST_DIR:-}"
 OUT_DIR="${OUT_DIR:-$(pwd)/build}"
 TARGET_ABI="${TARGET_ABI:-arm64-v8a}"
+NODE_VERSION="${NODE_VERSION:-}"
 VERSION="${1:-}"
 OUT_ZIP="${2:-}"
 
@@ -62,7 +70,32 @@ mihomo_stable_tag() {
     tag=$(curl -sIL --max-time 30 "https://github.com/MetaCubeX/mihomo/releases/latest" \
       | sed -n 's/^[Ll]ocation: .*\/tag\/\(.*\)\r\?$/\1/p' | tail -n 1)
   fi
+  # 去 CR/空白, 保证与版本文件精确比对一致
+  tag=${tag//$'\r'/}
   echo "$tag"
+}
+
+# ---------- 上游最新版本 (新旧对比用; 失败返回空不中断) ----------
+# 期望使用的 node 版本: 指定 NODE_VERSION 或官方最新 LTS
+node_expected_version() {
+  if [ -n "$NODE_VERSION" ] && [ "$NODE_VERSION" != "lts" ] && [ "$NODE_VERSION" != "latest" ]; then
+    echo "${NODE_VERSION#v}"
+  else
+    curl -fsSL --max-time 30 "https://nodejs.org/dist/index.json" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+l = [x for x in d if x.get("lts")]
+print(l[0]["version"].lstrip("v") if l else "")' || true
+  fi
+}
+
+# 某 GitHub 仓库最新 release 的 tag
+latest_github_tag() {  # $1=owner/repo
+  curl -fsSL --max-time 30 "https://api.github.com/repos/$1/releases/latest" 2>/dev/null \
+    | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 || true
 }
 
 # ---------- 组件下载 ----------
@@ -79,16 +112,10 @@ fetch_node() {  # $1 = sub_store/bin 目录
   else
     local repo="${NODE_REPO:-Delusions6515/node-android-build}"
     local lts_ver major rel
-    # 始终使用官方最新 LTS: 从 nodejs.org index.json 解析当前 LTS 完整版本
-    info "node: 解析官方最新 LTS 版本 ..."
-    lts_ver=$(curl -fsSL --max-time 30 "https://nodejs.org/dist/index.json" | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-l = [x for x in d if x.get("lts")]
-print(l[0]["version"].lstrip("v") if l else d[0]["version"].lstrip("v"))')
-    [ -n "$lts_ver" ] || die "无法解析官方最新 LTS 版本"
+    lts_ver=$(node_expected_version)
+    [ -n "$lts_ver" ] || die "无法解析 node 版本 (指定 NODE_VERSION 或官方最新 LTS)"
     major="${lts_ver%%.*}"
-    info "node: 最新 LTS = $lts_ver, 从 $repo release node-android-${NODE_ARCH}-${major} 获取 ..."
+    info "node: $lts_ver, 从 $repo release node-android-${NODE_ARCH}-${major} 获取 ..."
     rel=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases/tags/node-android-${NODE_ARCH}-${major}" || true)
     # 优先取最新 LTS 版本对应的 asset; 尚未构建则回退该大版本已有最高版本
     url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${lts_ver}"'\.tar\.xz"' \
@@ -156,6 +183,34 @@ fetch_http_meta() {  # $1 = sub_store/bin 目录
   info "http-meta: 内核 $tag"
 }
 
+# ---------- 新旧版本对比 (默认开启, SKIP_VERSION_CHECK=1 跳过) ----------
+# 对比 bin/ 内组件版本与上游最新版, 过旧/缺失则自动重新下载刷新。
+refresh_if_stale() {  # $1=版本文件 $2=组件名 $3=期望版本; 过旧/缺失返回 1 (触发刷新)
+  local ver
+  ver=$(cat "$1" 2>/dev/null || true)
+  if [ -z "$3" ]; then
+    warn "版本检查: 无法解析 $2 最新版本, 跳过"
+    return 0
+  fi
+  if [ -z "$ver" ] || [ "$ver" != "$3" ]; then
+    warn "版本检查: $2 过旧 (bin=${ver:-无}, 最新=$3), 自动刷新"
+    return 1
+  fi
+  info "版本检查: $2 = $ver (最新)"
+  return 0
+}
+
+check_components_fresh() {  # $1 = sub_store/bin 目录
+  [ "${SKIP_VERSION_CHECK:-0}" = "1" ] && { info "版本检查: 跳过 (SKIP_VERSION_CHECK=1)"; return 0; }
+  local dir="$1"
+  info "版本检查: 对比上游最新版本 (过旧自动刷新) ..."
+  refresh_if_stale "$dir/node_version" "node" "$(node_expected_version)" || fetch_node "$dir"
+  refresh_if_stale "$dir/backend_version" "后端" "$(latest_github_tag "sub-store-org/Sub-Store")" || fetch_backend "$dir"
+  refresh_if_stale "$dir/frontend_version" "前端" "$(latest_github_tag "sub-store-org/Sub-Store-Front-End")" || fetch_frontend "$dir"
+  refresh_if_stale "$dir/http-meta/kernel_version" "mihomo" "$(mihomo_stable_tag)" || fetch_http_meta "$dir"
+  info "版本检查: 完成"
+}
+
 # ---------- WebUI ----------
 build_webui() {
   local dist="${WEBUI_DIST_DIR:-}"
@@ -193,15 +248,23 @@ cp -r "$MODULE_DIR/." "$STAGE/"
 find "$STAGE" -name .DS_Store -delete
 
 # ---------- 2. 组件 ----------
-# 仓库内已预置 module/sub_store/bin 时直接使用, 否则在线获取
-if [ ! -d "$STAGE/sub_store/bin" ]; then
-  info "在线获取组件 ..."
-  mkdir -p "$STAGE/sub_store/bin"
-  fetch_node        "$STAGE/sub_store/bin"
-  fetch_backend     "$STAGE/sub_store/bin"
-  fetch_frontend    "$STAGE/sub_store/bin"
-  fetch_http_meta   "$STAGE/sub_store/bin"
-fi
+# 组件目录 $REPO_DIR/bin (结构同 sub_store/bin, 含版本文件); 构建优先使用,
+# 缺失的组件自动下载补齐到 bin/ (本地 / CI 缓存复用)。
+STAGE_BIN="$STAGE/sub_store/bin"
+BIN_DIR="$REPO_DIR/bin"
+mkdir -p "$STAGE_BIN" "$BIN_DIR"
+
+# 逐项补齐缺失组件 (下载到 bin/ 持久化)
+[ -e "$BIN_DIR/sub_store_node" ]      || fetch_node      "$BIN_DIR"
+[ -e "$BIN_DIR/sub-store.bundle.js" ] || fetch_backend   "$BIN_DIR"
+[ -e "$BIN_DIR/frontend/index.html" ] || fetch_frontend  "$BIN_DIR"
+[ -e "$BIN_DIR/http-meta.bundle.js" ] || fetch_http_meta "$BIN_DIR"
+
+# 新旧对比: 过旧组件自动刷新 (SKIP_VERSION_CHECK=1 跳过)
+check_components_fresh "$BIN_DIR"
+
+# 同步到 stage
+cp -rf "$BIN_DIR/." "$STAGE_BIN/"
 
 # 校验关键文件
 for f in \
@@ -273,8 +336,8 @@ rm -f "$OUT_ZIP"
 echo
 info "已生成: $OUT_ZIP"
 info "内置组件版本:"
-[ -f "$STAGE/sub_store/bin/node_version" ]     && echo "  node:      $(cat "$STAGE/sub_store/bin/node_version")"
-echo "  后端:     $(cat "$STAGE/sub_store/bin/backend_version")"
-echo "  前端:     $(cat "$STAGE/sub_store/bin/frontend_version")"
-echo "  mihomo:   $(cat "$STAGE/sub_store/bin/http-meta/kernel_version")"
+[ -f "$STAGE/sub_store/bin/node_version" ]             && echo "  node:      $(cat "$STAGE/sub_store/bin/node_version")"
+[ -f "$STAGE/sub_store/bin/backend_version" ]          && echo "  后端:     $(cat "$STAGE/sub_store/bin/backend_version")"
+[ -f "$STAGE/sub_store/bin/frontend_version" ]         && echo "  前端:     $(cat "$STAGE/sub_store/bin/frontend_version")"
+[ -f "$STAGE/sub_store/bin/http-meta/kernel_version" ] && echo "  mihomo:   $(cat "$STAGE/sub_store/bin/http-meta/kernel_version")"
 ls -lh "$OUT_ZIP"
