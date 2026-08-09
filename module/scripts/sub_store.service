@@ -51,14 +51,22 @@ start_bin() {
   # 降权仅用 su: 必须带 -g 2000 -G 3003 (inet 组)。缺 inet 组时 Android resolver
   # (getaddrinfo) 对 uid 2000 失败, Node 的 dns.lookup/HTTPS 报 ENOTFOUND;
   # setpriv 不可用, 已弃用
-  local su_prefix=""
+  # http-meta 是否带 inet 组由 run_http_meta_with_inet 控制 (带 = 走 VPN 但可用系统 DNS)
+  local su_prefix="" meta_su_prefix=""
   case "${run_as_user:-root}" in
     shell|2000)
       if command -v su >/dev/null 2>&1 && su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
         # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 -g/-G,
         # 但 command -v 存在 ≠ 可用, 实测成功才采用
+        # Sub-Store 主进程必带 inet (订阅/健康检查需要系统 DNS)
         su_prefix="su 2000 -g 2000 -G 3003 -c"
-        log Info "降权: su 2000 -g 2000 -G 3003 (inet 组)"
+        if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+          meta_su_prefix="$su_prefix"
+          log Info "降权: su 2000 -g 2000 -G 3003 (inet 组; http-meta 走 VPN)"
+        else
+          meta_su_prefix="su 2000 -g 2000 -c"
+          log Info "降权: su 2000 -g 2000 -G 3003 (inet 组); http-meta 直连 (run_http_meta_with_inet=false)"
+        fi
       else
         log Info "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂), 按已知回退以 root 运行"
       fi
@@ -92,10 +100,10 @@ start_bin() {
     done < "$ENV_SOURCE"
   fi
 
-  # 启动: su 降权 (带 inet 组) / root 直跑
+  # 启动: su 降权 (Sub-Store 带 inet; http-meta 按 run_http_meta_with_inet) / root 直跑
   if [ -n "$su_prefix" ]; then
     $su_prefix "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
-    $su_prefix "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+    $meta_su_prefix "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
   else
     # root: 直接运行
     nohup "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &

@@ -107,8 +107,7 @@ http-meta 子菜单:
 > 旧版默认值所有安装者都一样，等同公开路径。若 env 中仍为模块默认值，执行菜单顶部会常驻告警，  
 > 可用 **生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH** 一键重新生成（生成后自动重启生效）。
 
-> ⚠️ **低权限用户不走 VPN**：node 默认以 `shell` (uid 2000) 运行，Android 的 VPN（Clash 等）默认只代理应用流量，shell 用户的流量**绕过 VPN 直连**。若订阅/机场需要代理访问，请在`sub_store.env` 中设置 `SUB_STORE_BACKEND_DEFAULT_PROXY`（如 `socks5://127.0.0.1:7890`）；  
-> http-meta 始终直连，不受影响。
+> ⚠️ http-meta 默认直连不走 VPN；如需其走 VPN（同时可用系统 DNS），在 `sub_store.config` 中设 `run_http_meta_with_inet="true"`。
 
 `sub_store.config` 中的模块配置：
 
@@ -116,6 +115,7 @@ http-meta 子菜单:
 | --- | --- |
 | `sub_store_path` 等路径变量 | 模块路径（一般不需要修改） |
 | `run_as_user` | 运行用户： <br> `shell`(uid `2000` 低权限)  <br> `root`/置空=root |
+| `run_http_meta_with_inet` | http-meta 是否授予 `inet` 组（仅 `shell` 用户生效）：<br> `false`(默认) 流量直连不走 VPN；<br> `true` 可用系统 DNS 但流量走 VPN |
 
 ## 手动操作
 
