@@ -161,39 +161,43 @@ autostart_status() {
 # 具体动作
 # ============================================================
 
-# ---------- 后台执行操作, TUI 实时显示 run.log (nohup 后台 + 日志轮转) ----------
-# $1=标题, 其余为命令及参数; 后台运行并把输出写进 run.log, 边跑边显示, 结束返回命令退出码。
-# 操作日志统一进 run.log: TUI 与 WebUI 都能看到本次操作输出。
+# ---------- 后台执行更新, TUI 实时显示 update.log (nohup 后台 + 日志轮转) ----------
+# $1=标题, 其余为命令及参数; 后台运行并把输出写进 update.log, 边跑边显示, 结束返回命令退出码。
+# 与 webui.sh 一致: 更新输出统一进 update.log, 重启操作日志(run.log)收尾追加进 update.log,
+# TUI 与 WebUI 更新页看到同一份日志。
 run_op() {
   local title=$1
   shift
   rotate_run_log
-  : >"$run_path/run.log"
-  : >"$run_path/run_error.log"
+  rotate_update_log
+  : >"$run_path/update.log"
+  : >"$run_path/update_error.log"
   echo ""
   echo "== 开始: $title =="
-  nohup "$@" >>"$run_path/run.log" 2>>"$run_path/run_error.log" &
+  nohup "$@" >>"$run_path/update.log" 2>>"$run_path/update_error.log" &
   local pid=$!
   local offset=0 size
-  # 轮询 run.log 新增长度并输出
+  # 轮询 update.log 新增长度并输出
   while kill -0 "$pid" 2>/dev/null; do
-    size=$(wc -c <"$run_path/run.log" 2>/dev/null || echo 0)
+    size=$(wc -c <"$run_path/update.log" 2>/dev/null || echo 0)
     if [ "$size" -gt "$offset" ]; then
-      tail -c +"$((offset + 1))" "$run_path/run.log" 2>/dev/null
+      tail -c +"$((offset + 1))" "$run_path/update.log" 2>/dev/null
       offset=$size
     fi
     sleep 1
   done
   wait "$pid"
   local rc=$?
-  size=$(wc -c <"$run_path/run.log" 2>/dev/null || echo 0)
+  size=$(wc -c <"$run_path/update.log" 2>/dev/null || echo 0)
   if [ "$size" -gt "$offset" ]; then
-    tail -c +"$((offset + 1))" "$run_path/run.log" 2>/dev/null
+    tail -c +"$((offset + 1))" "$run_path/update.log" 2>/dev/null
   fi
-  if [ -s "$run_path/run_error.log" ]; then
+  # 重启操作日志（run.log）追加进 update.log 并显示
+  tail -n 50 "$run_path/run.log" 2>/dev/null | tee -a "$run_path/update.log"
+  if [ -s "$run_path/update_error.log" ]; then
     echo ""
-    echo "[Error] --- run_error.log ---"
-    tail -n 50 "$run_path/run_error.log"
+    echo "[Error] --- update_error.log ---"
+    tail -n 50 "$run_path/update_error.log"
   fi
   echo ""
   echo "== $title 结束 (退出码 $rc) =="

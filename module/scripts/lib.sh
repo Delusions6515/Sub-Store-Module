@@ -13,6 +13,13 @@ rotate_run_log() {
   mv "$run_path/run_error.log" "$run_path/run_error.log.bak" >/dev/null 2>&1
 }
 
+# 更新日志轮转：归档 update.log / update_error.log，新文件只含本次更新输出。
+# 与 run.log（服务操作日志）分开，前端更新页只读 update.log，避免与运行日志混淆。
+rotate_update_log() {
+  mv "$run_path/update.log" "$run_path/update.log.bak" >/dev/null 2>&1
+  mv "$run_path/update_error.log" "$run_path/update_error.log.bak" >/dev/null 2>&1
+}
+
 # ---------- 配置加载 ----------
 # 优先使用用户配置 (/data/local/sub_store/scripts/), 否则使用模块内置默认配置
 # sub_store.config 仅含模块特有配置; sub_store.env 为服务环境变量 (Docker 版一致)
