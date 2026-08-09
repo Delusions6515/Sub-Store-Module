@@ -92,15 +92,15 @@ mihomo_abi() {
   esac
 }
 
-# ---------- mihomo 稳定版 tag: GitHub API 优先, 失败回退解析 latest 重定向 ----------
+# ---------- mihomo 稳定版 tag: GitHub API 优先, 失败回退 version.txt ----------
 mihomo_stable_tag() {
   local tag
   tag=$(fetch_text "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" \
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
-  if [ -z "$tag" ] && command -v curl >/dev/null 2>&1; then
-    tag=$(curl -sIL --connect-timeout 10 --max-time 30 \
-      "https://github.com/MetaCubeX/mihomo/releases/latest" 2>/dev/null \
-      | sed -n 's/^[Ll]ocation: .*\/tag\/\(.*\)\r\?$/\1/p' | tail -n 1)
+  if [ -z "$tag" ]; then
+    # releases/latest/download 自动指向最新稳定版
+    tag=$(fetch_text "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt" \
+      | tr -d '\r\n')
   fi
   echo "$tag"
 }

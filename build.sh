@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # Sub-Store for Android - 模块构建脚本
-# 所有组件均从公开 release 在线获取, 无需本地参考文件,
+# 所有组件均可从公开 release 在线获取, 无需本地参考文件,
 # 可直接在 GitHub Actions 中运行。
 #
 # 用法:
@@ -67,8 +67,8 @@ mihomo_stable_tag() {
   tag=$(curl -fsSL --max-time 30 "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" \
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
   if [ -z "$tag" ]; then
-    tag=$(curl -sIL --max-time 30 "https://github.com/MetaCubeX/mihomo/releases/latest" \
-      | sed -n 's/^[Ll]ocation: .*\/tag\/\(.*\)\r\?$/\1/p' | tail -n 1)
+    # 回退: version.txt (releases/latest/download 自动指向最新稳定版)
+    tag=$(curl -fsSL --max-time 30 "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt" 2>/dev/null | tr -d '\r\n')
   fi
   # 去 CR/空白, 保证与版本文件精确比对一致
   tag=${tag//$'\r'/}
