@@ -12,6 +12,10 @@ SCRIPTS_DIR=$(dirname "$0")
 . "$SCRIPTS_DIR/lib.sh"
 load_config
 
+# 更新命令结束时写完成标记（退出码），供前端区分"更新真正结束"与"下载中途日志停滞"。
+# 只在 UPDATE_DONE_MARKER=1（update-* 分支）时生效；$? 须先存起来，后续测试会覆盖它。
+trap 'rc=$?; [ "${UPDATE_DONE_MARKER:-}" = "1" ] && echo "$rc" > "$run_path/update.done"' EXIT
+
 CMD=${1:-}
 MODE=${2:-all}
 
@@ -33,9 +37,10 @@ case "$CMD" in
     sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log"
     ;;
   log-reset)
-    # 归档当前 run.log/update.log，供前端在操作前同步轮转，保证新日志只含本次输出
+    # 归档当前 run.log/update.log 并清除完成标记，供前端在操作前同步轮转
     rotate_run_log
     rotate_update_log
+    rm -f "$run_path/update.done"
     ;;
   log)
     # 输出 run.log / run_error.log 全部内容（配合 rotate_run_log，内容即最近一次操作输出）
@@ -56,6 +61,7 @@ case "$CMD" in
   update-all)
     # 更新输出统一写入 update.log（配合 rotate_update_log 归档，前端可只读本次更新日志）；
     # 末尾重启的操作日志（run.log）追加进 update.log，方便确认重启结果
+    UPDATE_DONE_MARKER=1
     rotate_update_log
     NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"       >>"$run_path/update.log" 2>>"$run_path/update_error.log" || exit 1
     NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh"      >>"$run_path/update.log" 2>>"$run_path/update_error.log" || exit 1
@@ -64,6 +70,7 @@ case "$CMD" in
     tail -n 50 "$run_path/run.log" >>"$run_path/update.log" 2>/dev/null
     ;;
   update-sub-store)
+    UPDATE_DONE_MARKER=1
     rotate_update_log
     NO_RESTART=1 sh "$SCRIPTS_DIR/update_backend.sh"  >>"$run_path/update.log" 2>>"$run_path/update_error.log" || exit 1
     NO_RESTART=1 sh "$SCRIPTS_DIR/update_frontend.sh" >>"$run_path/update.log" 2>>"$run_path/update_error.log" || exit 1
@@ -71,17 +78,20 @@ case "$CMD" in
     tail -n 50 "$run_path/run.log" >>"$run_path/update.log" 2>/dev/null
     ;;
   update-backend)
+    UPDATE_DONE_MARKER=1
     rotate_update_log
     sh "$SCRIPTS_DIR/update_backend.sh" >>"$run_path/update.log" 2>>"$run_path/update_error.log"
     # 更新脚本内部可能重启服务，把重启操作日志（run.log）追加进更新日志
     tail -n 50 "$run_path/run.log" >>"$run_path/update.log" 2>/dev/null
     ;;
   update-frontend)
+    UPDATE_DONE_MARKER=1
     rotate_update_log
     sh "$SCRIPTS_DIR/update_frontend.sh" >>"$run_path/update.log" 2>>"$run_path/update_error.log"
     tail -n 50 "$run_path/run.log" >>"$run_path/update.log" 2>/dev/null
     ;;
   update-http-meta)
+    UPDATE_DONE_MARKER=1
     rotate_update_log
     sh "$SCRIPTS_DIR/update_http_meta.sh" "$MODE" >>"$run_path/update.log" 2>>"$run_path/update_error.log"
     tail -n 50 "$run_path/run.log" >>"$run_path/update.log" 2>/dev/null
@@ -93,7 +103,7 @@ case "$CMD" in
   update-log)
     # 输出 update.log / update_error.log 全部内容（本次更新 + 重启操作日志）
     if [ -f "$run_path/update.log" ]; then
-      tail -n 100 "$run_path/update.log"
+      tail -n 200 "$run_path/update.log"
     fi
     if [ -s "$run_path/update_error.log" ]; then
       echo "[Error] --- update_error.log ---"
@@ -101,11 +111,20 @@ case "$CMD" in
     fi
     ;;
   update-log-size)
-    # 输出 update.log 当前字节数，供前端轮询判断更新是否完成
+    # 输出 update.log 当前字节数
     wc -c < "$run_path/update.log" 2>/dev/null || echo 0
     ;;
+  update-status)
+    # 更新完成状态：update.done 存在则输出退出码，否则输出 running。
+    # 前端据此判断更新真正结束（大文件下载可能长时间不写日志，不能靠字节数判断完成）
+    if [ -f "$run_path/update.done" ]; then
+      cat "$run_path/update.done"
+    else
+      echo "running"
+    fi
+    ;;
   *)
-    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-reset|log-size|update-log|update-log-size|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
+    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-reset|log-size|update-log|update-log-size|update-status|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
     exit 1
     ;;
 esac
