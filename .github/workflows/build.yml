@@ -216,8 +216,8 @@ jobs:
           }
           JSON
           done
-          # CHANGELOG.md: 生成每个稳定 tag 相对上一稳定 tag 的新提交, 只保留最近 4 个 tag
-          python3 gen-changelog.py --stable-only > json-out/CHANGELOG.md
+          # CHANGELOG.md: 最近 4 个版本 (稳定/hotfix 计数, 排除 alpha/beta/rc)
+          python3 gen-changelog.py --stable-only --with-hotfix > json-out/CHANGELOG.md
           ls -l json-out/
 
       - name: Publish to gh-pages branch

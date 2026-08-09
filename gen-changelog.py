@@ -5,6 +5,7 @@
   gen-changelog.py                  # 完整 CHANGELOG (默认最近 4 个 tag)
   gen-changelog.py --tag v2.0.4     # 只输出该 tag 的提交区块 (release notes 用)
   gen-changelog.py --stable-only    # CHANGELOG 只保留稳定版 tag
+  gen-changelog.py --stable-only --with-hotfix  # 稳定/hotfix 算版本, 取最近 N 个
   gen-changelog.py --tags 4         # 控制 CHANGELOG 保留的 tag 数
 """
 import argparse
@@ -47,14 +48,17 @@ def tag_section(tag, prev, build_type=None):
         if subject.startswith("chore(deps):"):
             continue
         for bl in body.splitlines():
-            bl = bl.strip()
-            if not bl:
+            stripped = bl.strip()
+            if not stripped:
                 continue
-            if bl.startswith("- "):
-                bl = bl[2:]
-            elif bl.startswith("* "):
-                bl = bl[2:]
-            lines.append(f"  - {bl}")
+            # 保留源缩进 (每 2 空格一级), 整体在 subject 基础上 +2 空格, 避免层级被抹平
+            indent = len(bl) - len(bl.lstrip(" "))
+            content = stripped
+            if content.startswith("- "):
+                content = content[2:]
+            elif content.startswith("* "):
+                content = content[2:]
+            lines.append(f"{' ' * (indent + 2)}- {content}")
     return lines
 
 
@@ -63,6 +67,7 @@ def main():
     ap.add_argument("--tag", help="只输出该 tag 的提交区块")
     ap.add_argument("--build-type", help="覆盖区块标题中的构建类型 (release/prerelease)")
     ap.add_argument("--stable-only", action="store_true", help="CHANGELOG 只保留无预发布后缀的 tag")
+    ap.add_argument("--with-hotfix", action="store_true", help="hotfix 也算版本, 与稳定版一起取最近 N 个 (排除 alpha/beta/rc)")
     ap.add_argument("--tags", type=int, default=4, help="CHANGELOG 保留的 tag 数 (默认 4)")
     args = ap.parse_args()
 
@@ -70,7 +75,13 @@ def main():
     if not all_tags:
         sys.exit("仓库没有 tag")
 
-    tags = [tag for tag in all_tags if "-" not in tag] if args.stable_only else all_tags
+    if args.stable_only:
+        # 只保留稳定版; --with-hotfix 时 hotfix 也算版本, 但排除 alpha/beta/rc 预发布
+        tags = [tag for tag in all_tags if "-" not in tag]
+        if args.with_hotfix:
+            tags = [tag for tag in all_tags if "-" not in tag or "-hotfix" in tag]
+    else:
+        tags = all_tags
 
     if args.tag:
         if args.tag not in tags:
@@ -81,11 +92,13 @@ def main():
         return
 
     window = tags[-args.tags:] if args.tags > 0 else tags
+
     out = ["# Changelog", ""]
     for tag in reversed(window):
         idx = tags.index(tag)
         prev = tags[idx - 1] if idx > 0 else None
-        out += tag_section(tag, prev)
+        build_type = "hotfix" if "hotfix" in tag else None
+        out += tag_section(tag, prev, build_type)
         out.append("")
     out += [
         "### Full Changelog",
