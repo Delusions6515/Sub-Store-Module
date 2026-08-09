@@ -86,8 +86,8 @@ draw_menu() {
   if run_user_is_root; then
     echo "  [!] 当前运行用户为 root, 建议改为 shell 用户"
     echo "      可在 sub_store.config 中修改 run_as_user"
-    echo "      shell 用户如果网络访问受限，可在 sub_store.env 中配置代理"
-    echo "      SUB_STORE_BACKEND_DEFAULT_PROXY=<你的代理软件代理地址>"
+    echo "  shell 用户如果网络访问受限，可在 sub_store.env 中配置代理"
+    echo '  SUB_STORE_BACKEND_DEFAULT_PROXY="<你的代理软件的代理地址>"'
   fi
   echo "---------------------------------------"
   echo ""

@@ -16,7 +16,7 @@
 | 功能 | 说明 |
 | --- | --- |
 | 开机自启 | `service.sh` 在系统启动完成后自动拉起 Sub-Store 后端 / 前端 / HTTP-META |
-| 可选低权限运行 | node 默认以 `root` 用户运行；<br> 可选以 `shell` (uid 2000) 较低权限运行； <br> 数据目录位于 `/data/local/sub_store`（shell 域原生可访问，不暴露 root） |
+| 低权限运行 | node 默认以 `shell` (uid 2000) 较低权限运行（含 `inet` 组）；<br> 可选以 `root` 身份运行（会有安全警告）；<br> 数据目录位于 `/data/local/sub_store`（shell 域原生可访问，不暴露 root） |
 | 执行按钮 | 管理器内点击 **[执行]**，按音量键选择操作（音量下键 移动 / 音量上键 确认） |
 | WebUI | Vue 3 + Vite + [miuix-vue](https://github.com/YuKongA/miuix-vue) 构建的 WebUI <br> KSU/AP 管理器可直接使用管理器内置 WebUI 功能， <br> Magisk 用户可尝试：[KsuWebUIStandalone](https://github.com/KOWX712/KsuWebUIStandalone/releases) 或 [WebUI X](https://github.com/MMRLApp/WebUI-X-Portable/releases) |
 | 全部更新 | Sub-Store 前后端 + http-meta 一次搞定 |
@@ -107,7 +107,7 @@ http-meta 子菜单:
 > 旧版默认值所有安装者都一样，等同公开路径。若 env 中仍为模块默认值，执行菜单顶部会常驻告警，  
 > 可用 **生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH** 一键重新生成（生成后自动重启生效）。
 
-> ⚠️ **低权限用户不走 VPN**：若你的 node 以 `shell` (uid 2000) 运行，Android 的 VPN（Clash 等）默认只代理应用流量，shell 用户的流量**绕过 VPN 直连**。若订阅/机场需要代理访问，请在`sub_store.env` 中设置 `SUB_STORE_BACKEND_DEFAULT_PROXY`（如 `socks5://127.0.0.1:7890`）；  
+> ⚠️ **低权限用户不走 VPN**：node 默认以 `shell` (uid 2000) 运行，Android 的 VPN（Clash 等）默认只代理应用流量，shell 用户的流量**绕过 VPN 直连**。若订阅/机场需要代理访问，请在`sub_store.env` 中设置 `SUB_STORE_BACKEND_DEFAULT_PROXY`（如 `socks5://127.0.0.1:7890`）；  
 > http-meta 始终直连，不受影响。
 
 `sub_store.config` 中的模块配置：
