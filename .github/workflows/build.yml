@@ -15,6 +15,7 @@ on:
         description: '内置 node 版本 (留空取最新 LTS, 如 22.14.0)'
         default: 'lts'
   push:
+    branches: ['main']   # main 推送 → canary 构建
     tags: ['v*']
 
 permissions:
@@ -42,15 +43,19 @@ jobs:
 
           tag="${GITHUB_REF_NAME:-}"
           version="${{ inputs.version }}"
-          [ -n "$version" ] || version="$tag"
+          if [ -z "$version" ] && [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="$tag"   # 发布构建: 用 tag 名
+          fi
+          # canary (main 推送/手动) 未指定版本时留空 → build.sh git describe 取最近 tag
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
           is_tag=false
           is_prerelease=false
           publish_update_json=false
           build_type=release
-          # 手动运行视为 canary 构建; hotfix 属于稳定版修订，alpha/beta/rc 才算预发布。
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # 手动运行或 main 推送视为 canary 构建; hotfix 属于稳定版修订，alpha/beta/rc 才算预发布。
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+            || [ "${{ github.ref }}" = "refs/heads/main" ]; then
             build_type=canary
           elif [[ "$version" =~ -(alpha|beta|rc)([.-]|$) ]]; then
             is_prerelease=true
