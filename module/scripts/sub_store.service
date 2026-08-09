@@ -48,54 +48,26 @@ start_bin() {
 
   # 低权限运行: 默认以 shell(uid 2000) 运行 node, 不授予多余权限
   # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
-  # 降权: 优先系统 toybox setpriv (/system/bin/setpriv, 支持 --reuid, 不受 busybox 影响)
-  # 依次尝试带/不带 --init-groups; 再试 su 2000; 最后 root
-  # rp: 启动前缀命令 (setpriv 前缀 / su 2000 -c); root 模式显式置空
-  local rp="" su_mode=0
-  if [ -n "${run_as_user:-}" ]; then
-    case "$run_as_user" in
-      shell|2000)
-        if [ -x /system/bin/setpriv ] \
-          && /system/bin/setpriv --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
-          rp="/system/bin/setpriv --reuid 2000 --regid 2000 --init-groups"
-          log Info "降权: /system/bin/setpriv (toybox, --init-groups)"
-        elif [ -x /system/bin/setpriv ] \
-          && /system/bin/setpriv --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
-          rp="/system/bin/setpriv --reuid 2000 --regid 2000"
-          log Info "降权: /system/bin/setpriv (toybox)"
-        else
-          local sp=""
-          sp=$(command -v setpriv 2>/dev/null || true)
-          if [ -n "$sp" ] \
-            && "$sp" --reuid 2000 --regid 2000 --init-groups id >/dev/null 2>&1; then
-            rp="$sp --reuid 2000 --regid 2000 --init-groups"
-            log Info "降权: $sp (setpriv, --init-groups)"
-          elif [ -n "$sp" ] \
-            && "$sp" --reuid 2000 --regid 2000 id >/dev/null 2>&1; then
-            rp="$sp --reuid 2000 --regid 2000"
-            log Info "降权: $sp (setpriv)"
-          elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
-            # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 UID 参数,
-            # 但 command -v 存在 ≠ 可用, 实测成功才采用 (与 setpriv 同原则)
-            su_mode=1
-            rp="su 2000 -c"
-            log Info "降权: su 2000"
-          else
-            # root: shell 模式的已知回退路径, 不算异常
-            rp=""
-            log Info "降权: setpriv/su 均不可用, 按已知回退以 root 运行"
-          fi
-        fi
-        ;;
-      root|"")
-        # root: 显式直跑, 无降权前缀
-        rp=""
-        log Info "以 root 运行";;
-      *) rp=""; log Warn "未知 run_as_user: $run_as_user, 回退以 root 运行" ;;
-    esac
-  else
-    rp=""  # 未配置 run_as_user = 默认 root
-  fi
+  # 降权仅用 su: 必须带 -g 2000 -G 3003 (inet 组)。缺 inet 组时 Android resolver
+  # (getaddrinfo) 对 uid 2000 失败, Node 的 dns.lookup/HTTPS 报 ENOTFOUND;
+  # setpriv 不可用, 已弃用
+  local su_prefix=""
+  case "${run_as_user:-root}" in
+    shell|2000)
+      if command -v su >/dev/null 2>&1 && su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+        # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 -g/-G,
+        # 但 command -v 存在 ≠ 可用, 实测成功才采用
+        su_prefix="su 2000 -g 2000 -G 3003 -c"
+        log Info "降权: su 2000 -g 2000 -G 3003 (inet 组)"
+      else
+        log Info "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂), 按已知回退以 root 运行"
+      fi
+      ;;
+    root)
+      log Info "以 root 运行";;
+    *)
+      log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行" ;;
+  esac
 
   # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
   if [ "${run_as_user:-}" = "shell" ] || [ "${run_as_user:-}" = "2000" ]; then
@@ -120,14 +92,10 @@ start_bin() {
     done < "$ENV_SOURCE"
   fi
 
-  # 启动: su 模式 / setpriv 降权 / root 直跑
-  if [ "$su_mode" = "1" ]; then
-    su 2000 -c "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
-    su 2000 -c "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
-  elif [ -n "$rp" ]; then
-    # setpriv 降权: rp 为前缀命令
-    nohup $rp "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
-    nohup $rp "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  # 启动: su 降权 (带 inet 组) / root 直跑
+  if [ -n "$su_prefix" ]; then
+    $su_prefix "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    $su_prefix "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
   else
     # root: 直接运行
     nohup "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
