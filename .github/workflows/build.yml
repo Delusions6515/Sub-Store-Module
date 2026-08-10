@@ -89,6 +89,18 @@ jobs:
           repository: Delusions6515/Sub-Store-Module-WebUI
           path: Sub-Store-Module-WebUI
 
+      - name: WebUI commit hash
+        id: webui-hash
+        run: echo "hash=$(git -C Sub-Store-Module-WebUI rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # dist 按 WebUI commit hash 缓存 (4 架构共享一份), hash 不变直接复用, 跳过 pnpm install + build
+      - name: Cache WebUI dist
+        id: webui-cache
+        uses: actions/cache@v6
+        with:
+          path: Sub-Store-Module-WebUI/dist
+          key: webui-dist-${{ steps.webui-hash.outputs.hash }}
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -102,6 +114,7 @@ jobs:
           cache-dependency-path: Sub-Store-Module-WebUI/pnpm-lock.yaml
 
       - name: Build WebUI
+        if: steps.webui-cache.outputs.cache-hit != 'true'
         run: |
           cd Sub-Store-Module-WebUI
           pnpm install --frozen-lockfile
