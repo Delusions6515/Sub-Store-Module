@@ -89,7 +89,7 @@ jobs:
           path: Sub-Store-Module-WebUI
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.3.0
 
