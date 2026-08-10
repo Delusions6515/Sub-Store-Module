@@ -31,7 +31,7 @@
 
 1. 执行 `./build.sh` 构建模块 zip，或使用已构建产物：
    - stable/alpha/beta/rc: [GitHub Releases](https://github.com/Delusions6515/Sub-Store-Module/releases)
-   - canary: [GitHub Actions](https://github.com/Delusions6515/Sub-Store-Module/actions/workflows/build.yml?query=branch%3Amain)
+   - canary: [GitHub Actions](https://github.com/Delusions6515/Sub-Store-Module/actions/workflows/build.yml?query=branch%3Adev+branch%3Amain)
 2. Magisk / KernelSU / APatch 管理器 → 模块 → 从本地安装
 3. 重启设备
 
