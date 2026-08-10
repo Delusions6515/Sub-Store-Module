@@ -127,7 +127,7 @@ jobs:
           fetch-depth: 0   # 完整历史: versionCode 取 git 提交数 (ZygiskNext 风格)
 
       - name: Download WebUI artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sub-store-webui-dist
           path: webui-dist
@@ -169,7 +169,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
