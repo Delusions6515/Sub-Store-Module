@@ -1,4 +1,4 @@
-name: Issue 模板检查
+name: Issue template check
 
 on:
   issues:
@@ -12,10 +12,15 @@ on:
 permissions:
   issues: write
 
+# job 没有 checkout, 显式告诉 gh 目标仓库
+env:
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   # ---------- 检查并标记未遵循模板的 Issue ----------
   check-template:
-    if: github.event_name != 'schedule' && !github.event.issue.pull_request
+    # 只在 issue 事件时运行; schedule/workflow_dispatch 下没有 github.event.issue
+    if: github.event_name == 'issues' && !github.event.issue.pull_request
     runs-on: ubuntu-latest
     steps:
       - name: 检查模板遵循情况并打标签
@@ -39,6 +44,8 @@ jobs:
               /^### / && found { exit }
               found { print }
             ' "$BODY_FILE")
+            # 表单中留空的字段 GitHub 渲染为 "_No response_", 不算填写
+            content=$(printf '%s' "$content" | sed '/^_No response_$/d')
             [ -n "$(printf '%s' "$content" | tr -d '[:space:]')" ]
           }
 
