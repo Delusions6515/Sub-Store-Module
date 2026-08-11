@@ -3,6 +3,7 @@
 # Sub-Store for Android - WebUI 脚本入口
 # 用法:
 #   webui.sh status|start|stop|restart|toggle-autostart|log|
+#            read-env|save-env|
 #            regenerate-backend-path|update-all|update-sub-store|
 #            update-backend|update-frontend|update-http-meta [mode]
 # 复用 sub_store.service 与各 update_*.sh, 不重复实现更新逻辑
@@ -57,6 +58,25 @@ case "$CMD" in
     ;;
   regenerate-backend-path)
     regenerate_backend_path
+    ;;
+  read-env)
+    # 输出用户配置 env 内容（缺失时先从模块默认落一份），不碰模块内置文件
+    ensure_user_env || exit 1
+    cat "${sub_store_path}/scripts/sub_store.env"
+    ;;
+  save-env)
+    # 入参: base64 编码的 env 内容；先落用户文件再备份，最后还原写入
+    if [ -z "${2:-}" ]; then
+      echo "[Error] 用法: webui.sh save-env <base64 内容>"
+      exit 1
+    fi
+    ensure_user_env || exit 1
+    backup_env_file || exit 1
+    printf '%s' "$2" | base64 -d > "${sub_store_path}/scripts/sub_store.env" || {
+      echo "[Error] 写入 env 文件失败: ${sub_store_path}/scripts/sub_store.env"
+      exit 1
+    }
+    echo "[Info] 已保存 env 文件"
     ;;
   update-all)
     # 更新输出统一写入 update.log（配合 rotate_update_log 归档，前端可只读本次更新日志）；
@@ -124,7 +144,7 @@ case "$CMD" in
     fi
     ;;
   *)
-    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-reset|log-size|update-log|update-log-size|update-status|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
+    echo "用法: $0 {status|start|stop|restart|toggle-autostart|log|log-reset|log-size|update-log|update-log-size|update-status|read-env|save-env|regenerate-backend-path|update-all|update-sub-store|update-backend|update-frontend|update-http-meta [all|js|kernel|kernel-alpha]}"
     exit 1
     ;;
 esac

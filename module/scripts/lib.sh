@@ -235,6 +235,31 @@ regenerate_backend_path() {
   echo "重启完成"
 }
 
+# WebUI env 编辑目标：始终是用户配置目录（sub_store.config 的 sub_store_path 派生）。
+# 不直接用 load_config 解析出的 CONFIG_DIR：load_config 在 webui.sh 顶部已执行，
+# 此刻用户配置目录若缺失会把 CONFIG_DIR 解析到模块内置目录，直接用它会把内置文件当编辑目标覆盖。
+ensure_user_env() {
+  local target="${sub_store_path}/scripts/sub_store.env"
+  if [ ! -f "$target" ]; then
+    mkdir -p "${sub_store_path}/scripts" 2>/dev/null
+    cp -f "$SCRIPTS_DIR/sub_store.env" "$target" 2>/dev/null || {
+      err "无法创建 $target"
+      return 1
+    }
+  fi
+}
+
+# 备份用户 env 文件为 webbak 后缀副本（滚动覆盖，save-env 覆盖前自动调用）
+backup_env_file() {
+  local target="${sub_store_path}/scripts/sub_store.env"
+  if [ -f "$target" ]; then
+    cp -f "$target" "$target.webbak" || {
+      err "备份 env 文件失败: $target"
+      return 1
+    }
+  fi
+}
+
 # ---------- 下载: curl 优先, 回退 wget ----------
 download() {  # $1=url  $2=输出文件路径
   if command -v curl >/dev/null 2>&1; then
