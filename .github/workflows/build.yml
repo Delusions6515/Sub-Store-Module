@@ -102,11 +102,13 @@ jobs:
           key: webui-dist-${{ steps.webui-hash.outputs.hash }}
 
       - name: Setup pnpm
+        if: steps.webui-cache.outputs.cache-hit != 'true'
         uses: pnpm/action-setup@v6
         with:
           version: 11.3.0
 
       - name: Setup Node.js
+        if: steps.webui-cache.outputs.cache-hit != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
