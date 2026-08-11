@@ -72,9 +72,9 @@ start_bin() {
       else
         log Warn "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂),"
         log Warn "降权(Sub-Store): 按已知回退以 root 运行"
-        if "${run_http_meta_with_inet:-false}" = "true"; then
+        if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
           log Warn "降权(http-meta): 按已知回退以 root 运行"
-        elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1
+        elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
           meta_su_prefix="su 2000 -c"
           log Info "降权(http-meta): su 2000"
         fi
