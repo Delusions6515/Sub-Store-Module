@@ -111,8 +111,13 @@ pick() {
   MENU_SEL=1
   local max=$#
   local idle=0
+  local redraw=1
   while true; do
-    draw_menu "$title" "$@"
+    # 只在按键后重绘, 超时静默等待 (Magisk 用滚屏清屏, 超时重绘会每几秒自动滚动)
+    if [ "$redraw" -eq 1 ]; then
+      draw_menu "$title" "$@"
+      redraw=0
+    fi
     sleep 0.3
     read_vol
     case $? in
@@ -120,6 +125,7 @@ pick() {
         MENU_SEL=$((MENU_SEL + 1))
         [ "$MENU_SEL" -gt "$max" ] && MENU_SEL=1
         idle=0
+        redraw=1
         ;;
       0) # 音量上键: 确认
         echo ""
