@@ -167,43 +167,49 @@ autostart_status() {
 # 具体动作
 # ============================================================
 
-# ---------- 后台执行更新, TUI 实时显示 update.log (nohup 后台 + 日志轮转) ----------
-# $1=标题, 其余为命令及参数; 后台运行并把输出写进 update.log, 边跑边显示, 结束返回命令退出码。
-# 与 webui.sh 一致: 更新输出统一进 update.log, 重启操作日志(run.log)收尾追加进 update.log,
-# TUI 与 WebUI 更新页看到同一份日志。
+# ---------- 后台执行操作, TUI 实时显示日志 (nohup 后台 + 日志轮转) ----------
+# $1=标题, $2=日志名 (update=更新 / run=服务操作), 其余为命令及参数;
+# 后台运行并把输出写进 ${logname}.log, 边跑边显示, 结束返回命令退出码。
+# 与 webui.sh 一致: 更新输出统一进 update.log, 服务操作进 run.log,
+# TUI 与 WebUI 看到同一份日志; 更新末尾把 run.log 追加进 update.log。
 run_op() {
   local title=$1
-  shift
+  local logname=$2
+  shift 2
+  local log="$run_path/$logname.log"
+  local errlog="$run_path/${logname}_error.log"
   rotate_run_log
-  rotate_update_log
-  : >"$run_path/update.log"
-  : >"$run_path/update_error.log"
+  [ "$logname" = "update" ] && rotate_update_log
+  : >"$log"
+  : >"$errlog"
   echo ""
   echo "== 开始: $title =="
-  nohup "$@" >>"$run_path/update.log" 2>>"$run_path/update_error.log" &
+  nohup "$@" >>"$log" 2>>"$errlog" &
   local pid=$!
   local offset=0 size
-  # 轮询 update.log 新增长度并输出
+  # 轮询日志新增长度并输出
   while kill -0 "$pid" 2>/dev/null; do
-    size=$(wc -c <"$run_path/update.log" 2>/dev/null || echo 0)
+    size=$(wc -c <"$log" 2>/dev/null || echo 0)
     if [ "$size" -gt "$offset" ]; then
-      tail -c +"$((offset + 1))" "$run_path/update.log" 2>/dev/null
+      tail -c +"$((offset + 1))" "$log" 2>/dev/null
       offset=$size
     fi
     sleep 1
   done
   wait "$pid"
   local rc=$?
-  size=$(wc -c <"$run_path/update.log" 2>/dev/null || echo 0)
+  size=$(wc -c <"$log" 2>/dev/null || echo 0)
   if [ "$size" -gt "$offset" ]; then
-    tail -c +"$((offset + 1))" "$run_path/update.log" 2>/dev/null
+    tail -c +"$((offset + 1))" "$log" 2>/dev/null
   fi
-  # 重启操作日志（run.log）追加进 update.log 并显示
-  tail -n 50 "$run_path/run.log" 2>/dev/null | tee -a "$run_path/update.log"
-  if [ -s "$run_path/update_error.log" ]; then
+  # 更新: 重启操作日志（run.log）追加进 update.log 并显示; 服务操作日志即 run.log, 无需追加
+  if [ "$logname" = "update" ]; then
+    tail -n 50 "$run_path/run.log" 2>/dev/null | tee -a "$run_path/update.log"
+  fi
+  if [ -s "$errlog" ]; then
     echo ""
-    echo "[Error] --- update_error.log ---"
-    tail -n 50 "$run_path/update_error.log"
+    echo "[Error] --- ${logname}_error.log ---"
+    tail -n 50 "$errlog"
   fi
   echo ""
   echo "== $title 结束 (退出码 $rc) =="
@@ -236,10 +242,10 @@ http_meta_menu() {
       "只更新 mihomo 内核 (Prerelease-Alpha 预览版)" \
       "返回上一级"
     case "$MENU_SEL" in
-      1) run_op "http-meta 全部更新" sh "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
-      2) run_op "http-meta js + tpl" sh "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
-      3) run_op "http-meta 内核稳定版" sh "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
-      4) run_op "http-meta 内核 Alpha" sh "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
+      1) run_op "http-meta 全部更新" update sh "$SCRIPTS_DIR/update_http_meta.sh" all          || exit 1 ;;
+      2) run_op "http-meta js + tpl" update sh "$SCRIPTS_DIR/update_http_meta.sh" js           || exit 1 ;;
+      3) run_op "http-meta 内核稳定版" update sh "$SCRIPTS_DIR/update_http_meta.sh" kernel       || exit 1 ;;
+      4) run_op "http-meta 内核 Alpha" update sh "$SCRIPTS_DIR/update_http_meta.sh" kernel-alpha || exit 1 ;;
       5) return ;;
     esac
   done
@@ -257,10 +263,10 @@ update_menu() {
       "更新 http-meta ..." \
       "返回上一级"
     case "$MENU_SEL" in
-      1) run_op "全部更新" sh -c "NO_RESTART=1 sh $SCRIPTS_DIR/update_backend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_frontend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_http_meta.sh all || exit 1; sh $SCRIPTS_DIR/sub_store.service restart; :" || exit 1 ;;
-      2) run_op "更新 Sub-Store 前后端" sh -c "NO_RESTART=1 sh $SCRIPTS_DIR/update_backend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_frontend.sh || exit 1; sh $SCRIPTS_DIR/sub_store.service restart; :" || exit 1 ;;
-      3) run_op "仅更新 Sub-Store 后端" sh "$SCRIPTS_DIR/update_backend.sh" || exit 1 ;;
-      4) run_op "仅更新 Sub-Store 前端" sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1 ;;
+      1) run_op "全部更新" update sh -c "NO_RESTART=1 sh $SCRIPTS_DIR/update_backend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_frontend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_http_meta.sh all || exit 1; sh $SCRIPTS_DIR/sub_store.service restart; :" || exit 1 ;;
+      2) run_op "更新 Sub-Store 前后端" update sh -c "NO_RESTART=1 sh $SCRIPTS_DIR/update_backend.sh || exit 1; NO_RESTART=1 sh $SCRIPTS_DIR/update_frontend.sh || exit 1; sh $SCRIPTS_DIR/sub_store.service restart; :" || exit 1 ;;
+      3) run_op "仅更新 Sub-Store 后端" update sh "$SCRIPTS_DIR/update_backend.sh" || exit 1 ;;
+      4) run_op "仅更新 Sub-Store 前端" update sh "$SCRIPTS_DIR/update_frontend.sh" || exit 1 ;;
       5) http_meta_menu ;;
       6) return ;;
     esac
@@ -285,9 +291,9 @@ main_menu() {
       "退出"
     case "$MENU_SEL" in
       1) open_address ;;
-      2) sh "$SCRIPTS_DIR/sub_store.service" start   >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
-      3) sh "$SCRIPTS_DIR/sub_store.service" stop    >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
-      4) sh "$SCRIPTS_DIR/sub_store.service" restart >>"$run_path/run.log" 2>>"$run_path/run_error.log" ;;
+      2) run_op "启动 Sub-Store" run sh "$SCRIPTS_DIR/sub_store.service" start ;;
+      3) run_op "停止 Sub-Store" run sh "$SCRIPTS_DIR/sub_store.service" stop ;;
+      4) run_op "重启 Sub-Store" run sh "$SCRIPTS_DIR/sub_store.service" restart ;;
       5) echo ""; regenerate_backend_path ;;
       6) echo ""; toggle_autostart ;;
       7) update_menu ;;
