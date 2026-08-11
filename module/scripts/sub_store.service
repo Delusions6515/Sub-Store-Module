@@ -56,27 +56,75 @@ start_bin() {
   local su_prefix="" meta_su_prefix=""
   case "${run_as_user:-root}" in
     shell|2000)
-      if command -v su >/dev/null 2>&1 && su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
-        # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 -g/-G,
-        # 但 command -v 存在 ≠ 可用, 实测成功才采用
-        # Sub-Store 主进程必带 inet (订阅/健康检查需要系统 DNS)
-        su_prefix="su 2000 -g 2000 -G 3003 -c"
-        log Info "降权(Sub-Store): su 2000 -g 2000 -G 3003 (inet 组)"
-        if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-          meta_su_prefix="$su_prefix"
-          log Info "降权(http-meta): su 2000 -g 2000 -G 3003 (inet 组); http-meta 走 VPN"
+      if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
+        log Info "KernelSU / APatch Mode"
+        if command -v su >/dev/null 2>&1 && su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+          # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 -g/-G,
+          # 但 command -v 存在 ≠ 可用, 实测成功才采用
+          # Sub-Store 主进程必带 inet (订阅/健康检查需要系统 DNS)
+          su_prefix="su 2000 -g 2000 -G 3003 -c"
+          log Info "降权(Sub-Store): su 2000 -g 2000 -G 3003 (inet 组)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_su_prefix="$su_prefix"
+            log Info "降权(http-meta): su 2000 -g 2000 -G 3003 (inet 组); http-meta 走 VPN"
+          else
+            meta_su_prefix="su 2000 -g 2000 -c"
+            log Info "降权(http-meta): su 2000 -g 2000; http-meta 直连 (run_http_meta_with_inet=false)"
+          fi
         else
-          meta_su_prefix="su 2000 -g 2000 -c"
-          log Info "降权(http-meta): su 2000 -g 2000; http-meta 直连 (run_http_meta_with_inet=false)"
+          log Warn "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂),"
+          log Warn "降权(Sub-Store): 按已知回退以 root 运行"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            log Warn "降权(http-meta): 按已知回退以 root 运行"
+          elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
+            meta_su_prefix="su 2000 -c"
+            log Info "降权(http-meta): su 2000"
+          fi
         fi
       else
-        log Warn "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂),"
-        log Warn "降权(Sub-Store): 按已知回退以 root 运行"
-        if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-          log Warn "降权(http-meta): 按已知回退以 root 运行"
-        elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
-          meta_su_prefix="su 2000 -c"
-          log Info "降权(http-meta): su 2000"
+        log Info "Magisk Mode"
+        if command -v su >/dev/null 2>&1 && su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+          # su 可用性实测: Magisk/KernelSU/APatch 的 su 都接受 -g/-G,
+          # 但 command -v 存在 ≠ 可用, 实测成功才采用
+          # Sub-Store 主进程必带 inet (订阅/健康检查需要系统 DNS)
+          su_prefix="su 2000 -g 2000 -G 3003 -c"
+          log Info "降权(Sub-Store): su 2000 -g 2000 -G 3003 (inet 组)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_su_prefix="$su_prefix"
+            log Info "降权(http-meta): su 2000 -g 2000 -G 3003 (inet 组); http-meta 走 VPN"
+          else
+            meta_su_prefix="su 2000 -g 2000 -c"
+            log Info "降权(http-meta): su 2000 -g 2000; http-meta 直连 (run_http_meta_with_inet=false)"
+          fi
+        elif command -v /system/bin/su >/dev/null 2>&1 && /system/bin/su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+          su_prefix="/system/bin/su 2000 -g 2000 -G 3003 -c"
+          log Info "降权(Sub-Store): /system/bin/su 2000 -g 2000 -G 3003 (inet 组)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_su_prefix="$su_prefix"
+            log Info "降权(http-meta): /system/bin/su 2000 -g 2000 -G 3003 (inet 组); http-meta 走 VPN"
+          else
+            meta_su_prefix="/system/bin/su 2000 -g 2000 -c"
+            log Info "降权(http-meta): /system/bin/su 2000 -g 2000; http-meta 直连 (run_http_meta_with_inet=false)"
+          fi
+        elif command -v /system/bin/magisk >/dev/null 2>&1 && /system/bin/magisk su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+          su_prefix="/system/bin/magisk su 2000 -g 2000 -G 3003 -c"
+          log Info "降权(Sub-Store): /system/bin/magisk su 2000 -g 2000 -G 3003 (inet 组)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_su_prefix="$su_prefix"
+            log Info "降权(http-meta): /system/bin/magisk su 2000 -g 2000 -G 3003 (inet 组); http-meta 走 VPN"
+          else
+            meta_su_prefix="/system/bin/magisk su 2000 -g 2000 -c"
+            log Info "降权(http-meta): /system/bin/magisk su 2000 -g 2000; http-meta 直连 (run_http_meta_with_inet=false)"
+          fi
+        else
+          log Warn "降权: su 不支持 -g/-G (缺 inet 组 DNS 必挂),"
+          log Warn "降权(Sub-Store): 按已知回退以 root 运行"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            log Warn "降权(http-meta): 按已知回退以 root 运行"
+          elif command -v su >/dev/null 2>&1 && su 2000 -c id >/dev/null 2>&1; then
+            meta_su_prefix="su 2000 -c"
+            log Info "降权(http-meta): su 2000"
+          fi
         fi
       fi
       ;;
