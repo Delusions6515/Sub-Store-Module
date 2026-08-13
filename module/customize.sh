@@ -85,10 +85,40 @@ else
 fi
 rm -rf "$MODPATH/sub_store"
 
-# 配置文件: 保留用户已有配置
+# 配置文件: 新装写入默认; 升级备份旧配置并合并模板中的新增配置项
 if [ ! -f "$SCRIPTS_DIR/sub_store.config" ]; then
   ui_print "- 写入默认配置文件 sub_store.config"
   cp -f "$MODPATH/scripts/sub_store.config" "$SCRIPTS_DIR/sub_store.config"
+  if [ "${APATCH:-}" != "true" ] && [ "${KSU:-}" != "true" ]; then
+    sed -i 's/^drop_priv_method=.*/drop_priv_method="node"/' "$SCRIPTS_DIR/sub_store.config"
+    ui_print "- Magisk: 降权方式设为 node"
+  fi
+else
+  cp -f "$SCRIPTS_DIR/sub_store.config" "$SCRIPTS_DIR/sub_store.config.bak" || abort "! 备份旧配置失败"
+  ui_print "- 已备份旧配置: sub_store.config.bak"
+  MERGED_CONFIG_COUNT=0
+  while IFS= read -r CONFIG_LINE || [ -n "$CONFIG_LINE" ]; do
+    CONFIG_KEY=${CONFIG_LINE%%=*}
+    case "$CONFIG_KEY" in
+      ""|*[!A-Za-z0-9_]*|[0-9]*) continue ;;
+    esac
+    CURRENT_LINE=$(grep -e "^[[:space:]]*$CONFIG_KEY=" "$SCRIPTS_DIR/sub_store.config" | tail -n 1)
+    if [ "$CONFIG_KEY" = "drop_priv_method" ] \
+      && { [ -z "$CURRENT_LINE" ] || printf '%s\n' "$CURRENT_LINE" | grep -q '^[[:space:]]*drop_priv_method=[[:space:]]*""[[:space:]]*$'; }; then
+      if [ "${APATCH:-}" = "true" ] || [ "${KSU:-}" = "true" ]; then
+        CONFIG_LINE='drop_priv_method="su"'
+      else
+        CONFIG_LINE='drop_priv_method="node"'
+      fi
+      sed -i "/^[[:space:]]*drop_priv_method=[[:space:]]*\"\"[[:space:]]*$/d" "$SCRIPTS_DIR/sub_store.config"
+      CURRENT_LINE=""
+    fi
+    if [ -z "$CURRENT_LINE" ]; then
+      printf '%s\n' "$CONFIG_LINE" >> "$SCRIPTS_DIR/sub_store.config"
+      MERGED_CONFIG_COUNT=$((MERGED_CONFIG_COUNT + 1))
+    fi
+  done < "$MODPATH/scripts/sub_store.config"
+  [ "$MERGED_CONFIG_COUNT" -gt 0 ] && ui_print "- 已合并 $MERGED_CONFIG_COUNT 个新增配置项"
 fi
 if [ ! -f "$SCRIPTS_DIR/sub_store.env" ]; then
   ui_print "- 写入默认环境变量文件 sub_store.env"
