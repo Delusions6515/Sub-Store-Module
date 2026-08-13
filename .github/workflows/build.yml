@@ -197,9 +197,11 @@ jobs:
         run: |
           args=(--tag "$TAG" --build-type "$BUILD_TYPE")
           [ "$BUILD_TYPE" = "release" ] && args+=(--stable-only)
-          python3 gen-changelog.py "${args[@]}" > release-notes.md
-          printf '\n构建记录: %s/%s/actions/runs/%s\n' \
-            "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}" >> release-notes.md
+          {
+            python3 gen-changelog.py "${args[@]}" | sed 's/^## /### /'
+            printf '\n构建记录: %s/%s/actions/runs/%s\n' \
+              "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}"
+          } > release-notes.md
           cat release-notes.md
 
       - name: Create or update release
@@ -208,13 +210,28 @@ jobs:
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ needs.metadata.outputs.is-prerelease }}
         run: |
-          args=(--title "Sub-Store for Android $TAG" --notes-file release-notes.md)
+          args=(--title "Sub-Store for Android $TAG")
           [ "$PRERELEASE" = "true" ] && args+=(--prerelease --latest=false)
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" "${args[@]}"
+            gh release view "$TAG" --json body --jq .body > current-release-notes.md
+            awk '
+              BEGIN {
+                while ((getline line < "release-notes.md") > 0) replacement = replacement line ORS
+                close("release-notes.md")
+              }
+              /^##[[:space:]]+What.s Changed[[:space:]]*$/ {
+                if (!found) printf "%s", replacement
+                found = 1
+                in_changed = 1
+                next
+              }
+              in_changed && /^##[[:space:]]/ { in_changed = 0 }
+              !in_changed { print }
+            ' current-release-notes.md > merged-release-notes.md
+            gh release edit "$TAG" "${args[@]}" --notes-file merged-release-notes.md
           else
-            gh release create "$TAG" "${args[@]}"
+            gh release create "$TAG" "${args[@]}" --notes-file release-notes.md
           fi
           gh release upload "$TAG" dist/*.zip --clobber
 
