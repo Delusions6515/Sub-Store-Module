@@ -56,6 +56,7 @@ start_bin() {
     shell|2000)
       drop_opt="--require=$SCRIPTS_DIR/drop_priv.js"
       drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
+      log Info "降权(Sub-Store): uid 2000 + inet 组 (3003)"
       if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
         meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
         log Info "降权(http-meta): inet 组 (3003); http-meta 走 VPN"
@@ -63,7 +64,6 @@ start_bin() {
         meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS="
         log Info "降权(http-meta): 无 inet 组; http-meta 直连 (run_http_meta_with_inet=false)"
       fi
-      log Info "降权(Sub-Store): 降权 uid 2000 + inet 组 (3003)"
       ;;
     root)
       log Info "以 root 运行";;
