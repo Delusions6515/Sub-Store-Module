@@ -48,29 +48,75 @@ start_bin() {
 
   # 低权限运行: 默认以 shell(uid 2000) 运行 node, 不授予多余权限
   # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
-  # 降权方式: 以 root 启动 node, 由 drop_priv.js (--require preload) 在 RunPre 时降权
+  # shell 用户可选 su（启动前切换用户）或 node（Node preload 自降权）
   # 3003(inet 组) https://android.googlesource.com/platform/system/core/+/refs/heads/main/libcutils/include/private/android_filesystem_config.h#167
   # http-meta 是否带 inet 组由 run_http_meta_with_inet 控制 (带 = 走 VPN 但可用系统 DNS)
-  local drop_opt="" drop_env="" meta_drop_env="" root_su=""
+  local drop_opt="" drop_env="" meta_drop_env="" root_su="" shell_su="" meta_shell_su="" node_su="" method=""
   case "${run_as_user:-root}" in
     shell|2000)
-      drop_opt="--require=$SCRIPTS_DIR/drop_priv.js"
-      drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
-      log Info "降权(Sub-Store): uid 2000 + inet 组 (3003)"
-      if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-        meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
-        log Info "降权(http-meta): inet 组 (3003); http-meta 走 VPN"
-      else
-        meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS="
-        log Info "降权(http-meta): 无 inet 组; http-meta 直连 (run_http_meta_with_inet=false)"
+      method=${drop_priv_method:-}
+      if [ -z "$method" ]; then
+        if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
+          method="su"
+        else
+          method="node"
+        fi
+        log Warn "未设置 drop_priv_method, 自动使用 $method"
       fi
+      case "$method" in
+        su)
+          if ! su 2000 -g 2000 -G 3003 -c id >/dev/null 2>&1; then
+            log Error "降权方式 su 不支持 -g/-G"
+            return 1
+          fi
+          shell_su="su 2000 -g 2000 -G 3003 -c"
+          log Info "降权方式: su (Sub-Store: uid 2000 + inet 组 3003)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_shell_su="$shell_su"
+            log Info "降权方式: su (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
+          else
+            meta_shell_su="su 2000 -g 2000 -c"
+            log Info "降权方式: su (http-meta: uid 2000; 直连)"
+          fi
+          ;;
+        node)
+          drop_opt="--require=$SCRIPTS_DIR/drop_priv.js"
+          drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
+          if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
+            node_su="su 0 -c"
+            log Info "降权方式: node (KSU/APatch 经 su 0 启动)"
+          fi
+          log Info "降权方式: node (Sub-Store: uid 2000 + inet 组 3003)"
+          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+            meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
+            log Info "降权方式: node (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
+          else
+            meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS="
+            log Info "降权方式: node (http-meta: uid 2000; 直连)"
+          fi
+          ;;
+        *)
+          log Error "未知 drop_priv_method: $method (可选 su|node)"
+          return 1
+          ;;
+      esac
       ;;
     root)
-      root_su="su 0 -c"
-      log Info "以 root 运行 (su 0)";;
+      if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
+        root_su="su 0 -c"
+        log Info "以 root 运行 (su 0)"
+      else
+        log Info "以 root 运行"
+      fi
+      ;;
     *)
-      root_su="su 0 -c"
-      log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行 (su 0)" ;;
+      if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
+        root_su="su 0 -c"
+        log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行 (su 0)"
+      else
+        log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行"
+      fi
+      ;;
   esac
 
   # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
@@ -96,10 +142,19 @@ start_bin() {
     done < "$ENV_SOURCE"
   fi
 
-  # 启动: shell 用户由 Node preload 降权; root 经 su 0 重开执行环境，避免直接继承 WebUI root shell
-  if [ -n "$drop_opt" ]; then
-    nohup env $drop_env "$bin_path" "$drop_opt" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
-    nohup env $meta_drop_env "$bin_path" "$drop_opt" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+  # su 方式在启动前切换到 shell 用户; node 方式由 Node preload 降权;
+  # root 经 su 0 重开执行环境，避免直接继承 WebUI root shell。
+  if [ -n "$shell_su" ]; then
+    $shell_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    $meta_shell_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+  elif [ -n "$drop_opt" ]; then
+    if [ -n "$node_su" ]; then
+      $node_su "nohup env $drop_env '$bin_path' '$drop_opt' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+      $node_su "nohup env $meta_drop_env '$bin_path' '$drop_opt' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+    else
+      nohup env $drop_env "$bin_path" "$drop_opt" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
+      nohup env $meta_drop_env "$bin_path" "$drop_opt" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+    fi
   else
     $root_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
     $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"

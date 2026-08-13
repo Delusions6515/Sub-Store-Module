@@ -117,6 +117,7 @@ http-meta 子菜单:
 | --- | --- |
 | `sub_store_path` 等路径变量 | 模块路径（一般不需要修改） |
 | `run_as_user` | 运行用户： <br> `shell`(uid `2000` 低权限)  <br> `root`/置空=root |
+| `drop_priv_method` | shell 用户降权方式：<br> `su`：启动前经 `su 2000` 切换（KSU/APatch 推荐）；<br> `node`：Node preload 自降权（KSU/APatch 经 `su 0 -c` 启动；Magisk 推荐） |
 | `run_http_meta_with_inet` | http-meta 是否授予 `inet` 组（仅 `shell` 用户生效）：<br> `false`(默认) 流量直连不走 VPN；<br> `true` 可用系统 DNS 但流量走 VPN |
 
 ## 手动操作
