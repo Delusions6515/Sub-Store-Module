@@ -71,12 +71,14 @@ start_bin() {
           fi
           shell_su="su 2000 -g 2000 -G 3003 -c"
           log Info "降权方式: su (Sub-Store: uid 2000 + inet 组 3003)"
-          if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-            meta_shell_su="$shell_su"
-            log Info "降权方式: su (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
-          else
-            meta_shell_su="su 2000 -g 2000 -c"
-            log Info "降权方式: su (http-meta: uid 2000; 直连)"
+          if [ "${run_http_meta}" = "true" ];then
+            if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
+              meta_shell_su="$shell_su"
+              log Info "降权方式: su (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
+            else
+              meta_shell_su="su 2000 -g 2000 -c"
+              log Info "降权方式: su (http-meta: uid 2000; 直连)"
+            fi
           fi
           ;;
         node)
@@ -146,18 +148,37 @@ start_bin() {
   # root 经 su 0 重开执行环境，避免直接继承 WebUI root shell。
   if [ -n "$shell_su" ]; then
     $shell_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
-    $meta_shell_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
-  elif [ -n "$drop_opt" ]; then
+    if [ "${run_http_meta:-true}" = "true" ]; then
+      $meta_shell_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+    fi
+  # node 方式 运行时自降权
+  # 启动 daemon 创建独立 session，再派生加载降权 preload 的业务 Node 进程。
+  elif [ -n "$drop_preload" ]; then
+    local daemon="$SCRIPTS_DIR/node_daemon.js"
+    if [ ! -f "$drop_preload" ]; then
+      log Error "缺少 node drop_priv: $drop_preload, 您可能需要重新安装模块以解决问题."
+      return 1
+    fi
+    if [ ! -f "$daemon" ]; then
+      log Error "缺少 node daemon: $daemon, 您可能需要重新安装模块以解决问题."
+      return 1
+    fi
     if [ -n "$node_su" ]; then
-      $node_su "nohup env $drop_env '$bin_path' '$drop_opt' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
-      $node_su "nohup env $meta_drop_env '$bin_path' '$drop_opt' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+      $node_su "env $drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$script_path' '$run_path/${bin_name}.log' '$run_path/${bin_name}_error.log'"
+      if [ "${run_http_meta:-true}" = "true" ]; then
+        $node_su "env $meta_drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$http_meta_script_path' '$run_path/http-meta.log' '$run_path/http-meta_error.log'"
+      fi
     else
-      nohup env $drop_env "$bin_path" "$drop_opt" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
-      nohup env $meta_drop_env "$bin_path" "$drop_opt" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+      env $drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$script_path" "$run_path/${bin_name}.log" "$run_path/${bin_name}_error.log"
+      if [ "${run_http_meta:-true}" = "true" ]; then
+        env $meta_drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$http_meta_script_path" "$run_path/http-meta.log" "$run_path/http-meta_error.log"
+      fi
     fi
   else
     $root_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
-    $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+    if [ "${run_http_meta:-true}" = "true" ]; then
+      $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+    fi
   fi
 
   # 记录本次启动时间 (写入内容 + 更新 mtime), 用于配置修改提醒
