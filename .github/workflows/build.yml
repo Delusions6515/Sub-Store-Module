@@ -198,7 +198,7 @@ jobs:
           args=(--tag "$TAG" --build-type "$BUILD_TYPE")
           [ "$BUILD_TYPE" = "release" ] && args+=(--stable-only)
           {
-            python3 gen-changelog.py "${args[@]}" | sed 's/^## /### /'
+            python3 gen-changelog.py "${args[@]}"
             printf '\n构建记录: %s/%s/actions/runs/%s\n' \
               "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}"
           } > release-notes.md
