@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.1 (90-de1e0a1-release)
+- chore: 调整日志输出顺序
+- fix(service): 修复降权逻辑 (#7)
+  - 使用 `node --require` 在 node 进程启动后, Sub-Store 运行前自我降权
+
 ## v2.2.0 (88-138cb92-release)
 - test: 降权逻辑区分 Magisk 和 (KSU/AP) 模式，并打印日志
   - ~~尝试修复 Magisk 的降权但是没修好~~
@@ -86,13 +91,6 @@
   - 此版本开始，默认用户回退 shell (su 2000 -g 2000 -G 3003)
 - fix: updateJson 生成修正 (version 去 v 前缀, zipUrl 构建类型对齐 release/hotfix)
   - Co-Authored-By: Claude <noreply@anthropic.com>
-
-## v2.0.7-hotfix.3 (57-8745b44-hotfix)
-- fix: 将默认运行用户改为 root, 并在 TUI 中增加安全提醒
-  - 之前设置为 shell 用户，网络访问可能受限
-  - 但我不推荐直接使用 root 用户运行
-  - 建议更改 run_as_user 为 shell 用户，并在 sub_store.env 中配置代理
-- refactor: 重构 action.sh，添加后台执行操作功能，支持实时显示 run.log 输出
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
