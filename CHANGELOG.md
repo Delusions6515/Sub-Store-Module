@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.2.2 (92-cdcc812-release)
+- chore(ci): Release Notes 中的 CHANGELOG部分 回退为2级标题
+- ci: 更新发布说明生成逻辑
+
 ## v2.2.1 (90-de1e0a1-release)
 - chore: 调整日志输出顺序
 - fix(service): 修复降权逻辑 (#7)
@@ -78,19 +82,6 @@
   - stop_service 的 kill 调用判空：进程已退出时不再因 kill 无参数报错导致退出码非 0
   - webui.sh 新增 log 子命令：输出 run.log / run_error.log 尾部，供 WebUI 展示操作日志
 - feat: 添加 WebUI 脚本入口并重构 action.sh 和 lib.sh 中的功能
-
-## v2.0.7-hotfix.4 (60-9707a1c-hotfix)
-- feat: 增加 http-meta 进程的 inet 组权限选项
-  - 若运行 http-meta 时使用 `su 2000 -g 2000 -G 3003`(带 inet 组)，则 http-meta 的流量也会走 Android VPN
-  - 但是一般使用场景下，http-meta 应该不被代理
-  - 所以本提交添加了 `run_http_meta_with_inet` 选项，用于控制运行 http-meta 时是否带 inet 组
-  - 效果：
-    - `false`(默认)：不带 inet 组，http-meta 流量不走 VPN
-    - `true`：带 inet 组，http-meta 可用系统 DNS 但流量走 VPN
-- fix: 降权逻辑加入 inet 组，修复 shell 情况下的 DNS 解析问题
-  - 此版本开始，默认用户回退 shell (su 2000 -g 2000 -G 3003)
-- fix: updateJson 生成修正 (version 去 v 前缀, zipUrl 构建类型对齐 release/hotfix)
-  - Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
