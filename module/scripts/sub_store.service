@@ -51,7 +51,7 @@ start_bin() {
   # 降权方式: 以 root 启动 node, 由 drop_priv.js (--require preload) 在 RunPre 时降权
   # 3003(inet 组) https://android.googlesource.com/platform/system/core/+/refs/heads/main/libcutils/include/private/android_filesystem_config.h#167
   # http-meta 是否带 inet 组由 run_http_meta_with_inet 控制 (带 = 走 VPN 但可用系统 DNS)
-  local drop_opt="" drop_env="" meta_drop_env=""
+  local drop_opt="" drop_env="" meta_drop_env="" root_su=""
   case "${run_as_user:-root}" in
     shell|2000)
       drop_opt="--require=$SCRIPTS_DIR/drop_priv.js"
@@ -66,9 +66,11 @@ start_bin() {
       fi
       ;;
     root)
-      log Info "以 root 运行";;
+      root_su="su 0 -c"
+      log Info "以 root 运行 (su 0)";;
     *)
-      log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行" ;;
+      root_su="su 0 -c"
+      log Warn "未知 run_as_user: ${run_as_user:-root}, 回退以 root 运行 (su 0)" ;;
   esac
 
   # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
@@ -94,15 +96,13 @@ start_bin() {
     done < "$ENV_SOURCE"
   fi
 
-  # 启动: 以 root 启动 node, drop_priv.js (--require) 在进程内降权
-  # 降权参数经 env 传参 (DROP_UID/DROP_GID/DROP_GROUPS), drop_priv.js 读取
+  # 启动: shell 用户由 Node preload 降权; root 经 su 0 重开执行环境，避免直接继承 WebUI root shell
   if [ -n "$drop_opt" ]; then
     nohup env $drop_env "$bin_path" "$drop_opt" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
     nohup env $meta_drop_env "$bin_path" "$drop_opt" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
   else
-    # root: 直接运行
-    nohup "$bin_path" "$script_path" >"$run_path/${bin_name}.log" 2>"$run_path/${bin_name}_error.log" &
-    nohup "$bin_path" "$http_meta_script_path" >"$run_path/http-meta.log" 2>"$run_path/http-meta_error.log" &
+    $root_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
   fi
 
   # 记录本次启动时间 (写入内容 + 更新 mtime), 用于配置修改提醒
