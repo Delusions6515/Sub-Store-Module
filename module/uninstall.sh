@@ -20,5 +20,10 @@ kill -15 $(pidof sub_store_node http-meta) 2>/dev/null
 sleep 1
 kill -9 $(pidof sub_store_node http-meta) 2>/dev/null
 
+# legacy config
+if [ -d "/data/adb/sub_store" ]; then
+  rm -rf "/data/adb/sub_store"
+fi
+
 echo "- Sub-Store 服务已停止"
 echo "- 数据保留在 /data/local/sub_store (如需彻底删除请手动删除)"

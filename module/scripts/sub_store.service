@@ -181,6 +181,51 @@ start_bin() {
     fi
   fi
 
+  if [ "${enable_legacy_support:-false}" != "false" ]; then
+      legacy_config_dir="/data/adb/sub_store"
+      legacy_config_file="${legacy_config_dir}/scripts/sub_store.config"
+
+      legacy_config_preload="# 这是 Sub-Store for Android 为基于 Sub Store for Magisk (xream) 模块的第三方工具向下兼容的配置文件\n# 此不是运行时配置, 如需修改配置, 请编辑 ${CONFIG_DIR}/sub_store.config\n# enable_legacy_support: ${enable_legacy_support}\n"
+      backend_host="${SUB_STORE_BACKEND_API_HOST:-127.0.0.1}"
+      backend_path="${SUB_STORE_FRONTEND_BACKEND_PATH}"
+
+      case "$enable_legacy_support" in
+          true)
+              backend_port="${SUB_STORE_BACKEND_API_PORT:-3001}"
+              ;;
+          backendport_backendpath)
+              backend_port="${SUB_STORE_BACKEND_API_PORT:-3001}/${backend_path##/}"
+              ;;
+          *)
+              log Warn "未知的 enable_legacy_support 值: $enable_legacy_support, fallback to true"
+              backend_port="${SUB_STORE_BACKEND_API_PORT:-3001}"
+              ;;
+      esac
+
+      if [ "${SUB_STORE_BACKEND_MERGE:-false}" = "true" ]; then
+          frontend_host="$backend_host"
+          frontend_port="${SUB_STORE_BACKEND_API_PORT:-3002}"
+      else
+          frontend_host="${SUB_STORE_FRONTEND_API_HOST:-127.0.0.1}"
+          frontend_port="${SUB_STORE_FRONTEND_API_PORT:-3002}"
+      fi
+
+      legacy_config_preload="${legacy_config_preload}\nsub_store_backend_merge=${SUB_STORE_BACKEND_MERGE:-false}"
+      legacy_config_preload="${legacy_config_preload}\nsub_store_backend_host=\"${backend_host}\""
+      legacy_config_preload="${legacy_config_preload}\nsub_store_backend_port=\"${backend_port}\""
+      legacy_config_preload="${legacy_config_preload}\nsub_store_frontend_host=\"${frontend_host}\""
+      legacy_config_preload="${legacy_config_preload}\nsub_store_frontend_port=\"${frontend_port}\""
+      legacy_config_preload="${legacy_config_preload}\nsub_store_frontend_backend_path=\"${backend_path}\""
+      legacy_config_preload="${legacy_config_preload}\nhttp_meta_host=\"${HOST:-127.0.0.1}\""
+      legacy_config_preload="${legacy_config_preload}\nhttp_meta_port=\"${PORT:-9876}\""
+
+      mkdir -p "$legacy_config_dir/scripts"
+      echo "$legacy_config_preload" > "$legacy_config_file"
+      chown -R 0:0 "$legacy_config_dir"
+      chmod -R 0600 "$legacy_config_dir"
+      log Info "向下兼容模式已启用: ${enable_legacy_support}"
+  fi
+
   # 记录本次启动时间 (写入内容 + 更新 mtime), 用于配置修改提醒
   date '+%Y-%m-%d %H:%M:%S' > "$run_path/.start_marker" 2>/dev/null
 
@@ -199,6 +244,12 @@ stop_service() {
   [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
   _pids="$(pidof "$bin_name" 2>/dev/null) $(pidof http-meta 2>/dev/null)"
   [ -n "$_pids" ] && kill -9 $_pids 2>/dev/null
+
+  # legacy config
+  if [ "${enable_legacy_support:-false}" != "false" ] && [ -d "/data/adb/sub_store" ]; then
+    rm -rf "/data/adb/sub_store"
+  fi
+
   return 0
 }
 
