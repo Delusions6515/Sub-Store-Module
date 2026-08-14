@@ -262,14 +262,54 @@ backup_env_file() {
 
 # ---------- 下载: curl 优先, 回退 wget ----------
 download() {  # $1=url  $2=输出文件路径
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --connect-timeout 10 --max-time 600 --retry 3 --retry-delay 2 --retry-max-time 60 "$1" -o "$2"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$2" "$1"
-  else
-    err "未找到 curl / wget, 无法下载"
-    return 127
+  local use_downloader=""
+  local busybox_path=""
+  local candidate=""
+
+  if command -v curl >/dev/null 2>&1; then # curl
+    use_downloader="curl"
+  elif command -v wget >/dev/null 2>&1; then # wget
+    use_downloader="wget"
+  elif [ "$allow_nosafe_download" = "true" ]; then # busybox
+    busybox_path=$(command -v busybox 2>/dev/null || true)
+    if [ -z "$busybox_path" ]; then
+      for candidate in "/data/adb/magisk/busybox" "/data/adb/ksu/bin/busybox" "/data/adb/ap/bin/busybox"; do
+        if [ -x "$candidate" ]; then
+          busybox_path="$candidate"
+          break
+        fi
+      done
+    fi
+    if [ -n "$busybox_path" ] && "$busybox_path" --list 2>/dev/null | grep -q "^wget$"; then
+      use_downloader="busybox"
+    else
+      use_downloader="none"
+    fi
+  else # none
+    use_downloader="none"
   fi
+
+  case "$use_downloader" in
+    curl)
+      curl -fsSL --connect-timeout 10 --max-time 600 --retry 3 --retry-delay 2 --retry-max-time 60 "$1" -o "$2"
+      ;;
+    wget)
+      wget -q -O "$2" "$1"
+      ;;
+    busybox)
+      warn "使用 busybox wget 下载, 可能存在安全风险"
+      "$busybox_path" wget -q -O "$2" "$1" >/dev/null 2>&1
+      ;;
+    *)
+      err "未找到可用的下载方式"
+      if [ "$allow_nosafe_download" = "true" ]; then
+        err "allow_nosafe_download 已启用, 但未找到包含 wget 的 busybox"
+      else
+        warn "如果您接受可能存在的安全风险, 可在 config: allow_nosafe_download 中设置为 true 以使用不安全的下载方式"
+      fi
+      return 127
+      ;;
+  esac
 }
 
 # ---------- 抓取文本 (版本号 / API) ----------

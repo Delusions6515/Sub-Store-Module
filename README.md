@@ -120,6 +120,7 @@ http-meta 子菜单:
 | `drop_priv_method` | shell 用户降权方式：<br> `su`：启动前经 `su 2000` 切换（KSU/APatch 推荐）；<br> `node`：Node preload 自降权（KSU/APatch 经 `su 0 -c` 启动；Magisk 推荐） |
 | `run_http_meta` | 是否运行 http-meta `true`(默认)/`false` |
 | `run_http_meta_with_inet` | http-meta 是否授予 `inet` 组（仅 `shell` 用户生效）：<br> `false`(默认) 流量直连不走 VPN；<br> `true` 可用系统 DNS 但流量走 VPN |
+| `allow_nosafe_download` | 是否允许不安全的下载方式 `true`/`false`(默认) : 用于更新时在所有下载方式不可用时降级使用 root 环境提供的 `busybox wget` 下载 (可能存在安全风险) |
 
 ## 手动操作
 
