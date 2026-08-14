@@ -2,5 +2,5 @@ id=sub_store
 name=Sub-Store for Android
 version=${versionName}
 versionCode=${versionCode}
-author=Delusions6515
+author=Delusions6515, lanyi233
 description=Advanced Subscription Manager with HTTP-META.
