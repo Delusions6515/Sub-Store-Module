@@ -38,7 +38,7 @@ start_bin() {
   ulimit -SHn 1000000
   chmod 755 "$bin_path" "$http_meta_meta_path/http-meta" 2>/dev/null
   # 更新脚本下载的文件可能因 umask 是 600 root, 低权限用户 (shell) 需可读
-  chmod 644 "$script_path" "$http_meta_script_path" "$http_meta_meta_path/tpl.yaml" "$SCRIPTS_DIR/drop_priv.js" 2>/dev/null
+  chmod 644 "$script_path" "$http_meta_script_path" "$http_meta_meta_path/tpl.yaml" "$SCRIPTS_DIR/drop_priv.js" "$SCRIPTS_DIR/node_daemon.js" 2>/dev/null
   chmod -R a+rX "$sub_store_path/bin/frontend" "$http_meta_meta_path" 2>/dev/null
 
   mv "$run_path/${bin_name}.log" "$run_path/${bin_name}.log.bak" >/dev/null 2>&1
@@ -51,7 +51,7 @@ start_bin() {
   # shell 用户可选 su（启动前切换用户）或 node（Node preload 自降权）
   # 3003(inet 组) https://android.googlesource.com/platform/system/core/+/refs/heads/main/libcutils/include/private/android_filesystem_config.h#167
   # http-meta 是否带 inet 组由 run_http_meta_with_inet 控制 (带 = 走 VPN 但可用系统 DNS)
-  local drop_opt="" drop_env="" meta_drop_env="" root_su="" shell_su="" meta_shell_su="" node_su="" method=""
+  local drop_preload="" drop_env="" meta_drop_env="" root_su="" shell_su="" meta_shell_su="" node_su="" method=""
   case "${run_as_user:-root}" in
     shell|2000)
       method=${drop_priv_method:-}
@@ -82,7 +82,7 @@ start_bin() {
           fi
           ;;
         node)
-          drop_opt="--require=$SCRIPTS_DIR/drop_priv.js"
+          drop_preload="$SCRIPTS_DIR/drop_priv.js"
           drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
           if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
             node_su="su 0 -c"
@@ -144,7 +144,7 @@ start_bin() {
     done < "$ENV_SOURCE"
   fi
 
-  # su 方式在启动前切换到 shell 用户; node 方式由 Node preload 降权;
+  # su 方式 在启动前切换到 shell 用户
   # root 经 su 0 重开执行环境，避免直接继承 WebUI root shell。
   if [ -n "$shell_su" ]; then
     $shell_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
