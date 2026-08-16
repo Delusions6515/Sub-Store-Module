@@ -157,7 +157,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: bin
-          key: components-${{ runner.os }}-${{ matrix.abi }}-${{ github.ref }}
+          key: components-${{ runner.os }}-${{ matrix.abi }}
 
       - name: Build module
         env:
