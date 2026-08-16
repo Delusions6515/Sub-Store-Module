@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.2.5 (103-b39aa75-release)
+- ci: 调整缓存方式
+- fix(action): 修改超时退出时间为 20 秒；添加单实例功能
+  - 受限于管理器没有明确的退出事件，action 只能做到事后止损
+  - ! 请使用 action 菜单自带的退出功能 ！
+- feat(lib, config): 增加不安全的下载方式 & 优化 lib.sh:download 逻辑 (#10)
+  - 当 lib:download curl,wget 方法不可用, 且 config `allow_nosafe_download` 为 `true` 时, 使用 root 环境提供的 `busybox wget` 来进行下载
+  - 优化 lib:download, 改为 case 方便后续扩展
+
 ## v2.2.4 (100-c283334-release)
 - chore(docs): update README.md
 - chore: module.prop 更新 author，新增 lanyi233
@@ -21,11 +30,6 @@
 ## v2.2.2 (92-cdcc812-release)
 - chore(ci): Release Notes 中的 CHANGELOG部分 回退为2级标题
 - ci: 更新发布说明生成逻辑
-
-## v2.2.1 (90-de1e0a1-release)
-- chore: 调整日志输出顺序
-- fix(service): 修复降权逻辑 (#7)
-  - 使用 `node --require` 在 node 进程启动后, Sub-Store 运行前自我降权
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
