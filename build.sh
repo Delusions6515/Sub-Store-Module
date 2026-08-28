@@ -118,8 +118,13 @@ fetch_node() {  # $1 = sub_store/bin 目录
     info "node: $lts_ver, 从 $repo release node-android-${NODE_ARCH}-${major} 获取 ..."
     rel=$(curl -fsSL --max-time 30 "https://api.github.com/repos/$repo/releases/tags/node-android-${NODE_ARCH}-${major}" || true)
     # 优先取最新 LTS 版本对应的 asset; 尚未构建则回退该大版本已有最高版本
-    url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${lts_ver}"'\.tar\.xz"' \
-      | head -n 1 | sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
+    url=$(
+      echo "$rel" |
+        grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${major}"'\.[0-9]+\.[0-9]+\.tar\.xz"' |
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
+        sort -V |
+        tail -n1
+    )
     if [ -z "$url" ]; then
       warn "node $lts_ver 尚未构建, 回退到 node-android-${NODE_ARCH}-${major} 中已有最高版本"
       url=$(echo "$rel" | grep -oE '"browser_download_url": "[^"]*node-android-'"${NODE_ARCH}"'-'"${major}"'\.[0-9]+\.[0-9]+\.tar\.xz"' \
