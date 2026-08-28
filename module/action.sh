@@ -43,12 +43,12 @@ read_vol() {
 }
 
 # 清屏: 优先 clear 命令 (无 clear 的环境也能用换行滚屏达到刷新效果)
-# Magisk 管理器终端不支持 ANSI 转义 (clear 会输出 \033[H\033[J 原文)
+# Magisk / APatch 管理器终端不支持 ANSI 转义
+# Magisk: \033[H\033[J
+# APatch:  [H [J
 clear_screen() {
-  if [ "${APATCH:-}" = "true" -o "${KSU:-}" = "true" ]; then
-    if command -v clear >/dev/null 2>&1; then
-      clear
-    fi
+  if [ "${KSU:-}" = "true" ] && command -v clear >/dev/null 2>&1 ; then
+    clear
   else
     echo ""
   fi
