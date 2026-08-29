@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.2.6 (105-573b3af-release)
+- fix(action): 移除 APatch 的 clear 调用
+  - APatch 管理器无法正常转义 clear 的输出
+- fix(build): 修复 node 版本获取逻辑
+  - 修复 node 最新 lts 版本尚未构建时，构建失败的问题
+
 ## v2.2.5 (103-b39aa75-release)
 - ci: 调整缓存方式
 - fix(action): 修改超时退出时间为 20 秒；添加单实例功能
@@ -26,10 +32,6 @@
 - fix: 修复 root 启动时 Sub-Store 卡住的问题
   - 不推荐使用 root 用户运行！
 - fix(ci): 修复发布说明生成逻辑
-
-## v2.2.2 (92-cdcc812-release)
-- chore(ci): Release Notes 中的 CHANGELOG部分 回退为2级标题
-- ci: 更新发布说明生成逻辑
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
