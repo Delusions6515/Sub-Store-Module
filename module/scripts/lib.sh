@@ -20,6 +20,16 @@ rotate_update_log() {
   mv "$run_path/update_error.log" "$run_path/update_error.log.bak" >/dev/null 2>&1
 }
 
+rotate_sub_store_log() {
+  mv "$run_path/${bin_name}.log" "$run_path/${bin_name}.log.bak" >/dev/null 2>&1
+  mv "$run_path/${bin_name}_error.log" "$run_path/${bin_name}_error.log.bak" >/dev/null 2>&1
+}
+
+rotate_http_meta_log() {
+  mv "$run_path/http-meta.log" "$run_path/http-meta.log.bak" >/dev/null 2>&1
+  mv "$run_path/http-meta_error.log" "$run_path/http-meta_error.log.bak" >/dev/null 2>&1
+}
+
 # ---------- 配置加载 ----------
 # 优先使用用户配置 (/data/local/sub_store/scripts/), 否则使用模块内置默认配置
 # sub_store.config 仅含模块特有配置; sub_store.env 为服务环境变量 (Docker 版一致)

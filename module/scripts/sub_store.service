@@ -28,23 +28,73 @@ log() {
   esac
 }
 
-start_bin() {
-  if pidof "$bin_name" >/dev/null 2>&1; then
-    log Warn "${bin_name} 已在运行, 跳过启动"
+is_pid_running() {
+  local pid_file="$1"
+  local match="$2"
+  local pid
+
+  [ -f "$pid_file" ] || return 1
+
+  pid=$(cat "$pid_file" 2>/dev/null)
+  case "$pid" in
+    ''|*[!0-9]*)
+      rm -f "$pid_file"
+      return 1
+      ;;
+  esac
+
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$pid_file"
+    return 1
+  fi
+
+  # 防止 PID 已被其他进程复用
+  if ! tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null |
+       grep -F "$match" >/dev/null; then
+    rm -f "$pid_file"
+    return 1
+  fi
+
+  return 0
+}
+
+stop_by_pidfile() {
+  local pid_file="$1"
+  local name="$2"
+  local match="$3"
+  local pid i
+
+  if ! is_pid_running "$pid_file" "$match"; then
+    rm -f "$pid_file"
     return 0
   fi
 
+  pid=$(cat "$pid_file")
+
+  log Warn "stopping $name service (PID $pid)."
+  kill -15 "$pid" 2>/dev/null
+
+  i=0
+  while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 20 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+
+  if kill -0 "$pid" 2>/dev/null; then
+    log Warn "$name 未在超时时间内退出, 强制结束 PID $pid"
+    kill -9 "$pid" 2>/dev/null
+  fi
+
+  rm -f "$pid_file"
+}
+
+start_bin() {
   log Info "starting ${bin_name} service."
   ulimit -SHn 1000000
   chmod 755 "$bin_path" "$http_meta_meta_path/http-meta" 2>/dev/null
   # 更新脚本下载的文件可能因 umask 是 600 root, 低权限用户 (shell) 需可读
   chmod 644 "$script_path" "$http_meta_script_path" "$http_meta_meta_path/tpl.yaml" "$SCRIPTS_DIR/drop_priv.js" "$SCRIPTS_DIR/node_daemon.js" 2>/dev/null
   chmod -R a+rX "$sub_store_path/bin/frontend" "$http_meta_meta_path" 2>/dev/null
-
-  mv "$run_path/${bin_name}.log" "$run_path/${bin_name}.log.bak" >/dev/null 2>&1
-  mv "$run_path/${bin_name}_error.log" "$run_path/${bin_name}_error.log.bak" >/dev/null 2>&1
-  mv "$run_path/http-meta.log" "$run_path/http-meta.log.bak" >/dev/null 2>&1
-  mv "$run_path/http-meta_error.log" "$run_path/http-meta_error.log.bak" >/dev/null 2>&1
 
   # 低权限运行: 默认以 shell(uid 2000) 运行 node, 不授予多余权限
   # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
@@ -108,6 +158,7 @@ start_bin() {
         root_su="su 0 -c"
         log Info "以 root 运行 (su 0)"
       else
+        root_su="su -c"
         log Info "以 root 运行"
       fi
       ;;
@@ -147,9 +198,19 @@ start_bin() {
   # su 方式 在启动前切换到 shell 用户
   # root 经 su 0 重开执行环境，避免直接继承 WebUI root shell。
   if [ -n "$shell_su" ]; then
-    $shell_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    if is_pid_running "$pid_file" "$script_path"; then
+      log Warn "Sub-Store 已在运行 (PID $(cat "$pid_file")), 跳过启动"
+    else
+      rotate_sub_store_log
+      $shell_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' & echo \$! > '$pid_file'"
+    fi
     if [ "${run_http_meta:-true}" = "true" ]; then
-      $meta_shell_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+      if is_pid_running "$http_meta_pid_file" "$http_meta_script_path"; then
+        log Warn "http-meta 已在运行 (PID $(cat "$http_meta_pid_file")), 跳过启动"
+      else
+        rotate_http_meta_log
+        $meta_shell_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' & echo \$! > '$http_meta_pid_file'"
+      fi
     fi
   # node 方式 运行时自降权
   # 启动 daemon 创建独立 session，再派生加载降权 preload 的业务 Node 进程。
@@ -175,9 +236,19 @@ start_bin() {
       fi
     fi
   else
-    $root_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' &"
+    if is_pid_running "$pid_file" "$script_path"; then
+      log Warn "Sub-Store 已在运行 (PID $(cat "$pid_file")), 跳过启动"
+    else
+      rotate_sub_store_log
+      $root_su "nohup '$bin_path' '$script_path' >'$run_path/${bin_name}.log' 2>'$run_path/${bin_name}_error.log' & echo \$! > '$pid_file'"
+    fi
     if [ "${run_http_meta:-true}" = "true" ]; then
-      $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' &"
+      if is_pid_running "$http_meta_pid_file" "$http_meta_script_path"; then
+        log Warn "http-meta 已在运行 (PID $(cat "$http_meta_pid_file")), 跳过启动"
+      else
+        rotate_http_meta_log
+        $root_su "nohup '$bin_path' '$http_meta_script_path' >'$run_path/http-meta.log' 2>'$run_path/http-meta_error.log' & echo \$! > '$http_meta_pid_file'"
+      fi
     fi
   fi
 
@@ -188,17 +259,13 @@ start_bin() {
 }
 
 stop_service() {
-  log Warn "stopping ${bin_name} service."
-  # 两个进程都由 sub_store_node 运行, 一并结束
-  _pids=$(pidof "$bin_name" 2>/dev/null)
-  [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
+  stop_by_pidfile "$http_meta_pid_file" "http-meta" "$http_meta_script_path"
+  stop_by_pidfile "$pid_file" "Sub-Store" "$script_path"
   # 等待 node 退出并让 http-meta 清理 mihomo 子进程
   sleep 2
-  # 兜底: 结束残留的 mihomo 内核与 node 进程 (pidof 为空时跳过, 避免 kill 无参数报错导致退出码非 0)
-  _pids="$(pidof "$bin_name" 2>/dev/null) $(pidof http-meta 2>/dev/null)"
+  # 兜底: 结束残留的 mihomo 内核
+  _pids=$(pidof http-meta 2>/dev/null)
   [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
-  _pids="$(pidof "$bin_name" 2>/dev/null) $(pidof http-meta 2>/dev/null)"
-  [ -n "$_pids" ] && kill -9 $_pids 2>/dev/null
   return 0
 }
 
