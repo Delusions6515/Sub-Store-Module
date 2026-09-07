@@ -15,7 +15,7 @@ on:
         description: '内置 node 版本 (留空取最新 LTS, 如 22.14.0)'
         default: 'lts'
   push:
-    branches: ['main', 'dev']   # main/dev 推送 → canary 构建
+    branches: ['dev']   # dev 推送 → canary 构建
     tags: ['v*']
 
 permissions:
