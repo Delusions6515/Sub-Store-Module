@@ -216,6 +216,7 @@ start_bin() {
   # 启动 daemon 创建独立 session，再派生加载降权 preload 的业务 Node 进程。
   elif [ -n "$drop_preload" ]; then
     local daemon="$SCRIPTS_DIR/node_daemon.js"
+    local node_start_failed=0
     if [ ! -f "$drop_preload" ]; then
       log Error "缺少 node drop_priv: $drop_preload, 您可能需要重新安装模块以解决问题."
       return 1
@@ -225,16 +226,50 @@ start_bin() {
       return 1
     fi
     if [ -n "$node_su" ]; then
-      $node_su "env $drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$script_path' '$run_path/${bin_name}.log' '$run_path/${bin_name}_error.log'"
+      if is_pid_running "$pid_file" "$script_path"; then
+        log Warn "Sub-Store 已在运行 (PID $(cat "$pid_file")), 跳过启动"
+      else
+        rotate_sub_store_log
+        if ! $node_su "env $drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$script_path' '$run_path/${bin_name}.log' '$run_path/${bin_name}_error.log' '$pid_file'"; then
+          log Error "Sub-Store 启动失败 (node daemon 退出码非 0, 原因见上方 stderr)"
+          node_start_failed=1
+        fi
+      fi
       if [ "${run_http_meta:-true}" = "true" ]; then
-        $node_su "env $meta_drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$http_meta_script_path' '$run_path/http-meta.log' '$run_path/http-meta_error.log'"
+        if is_pid_running "$http_meta_pid_file" "$http_meta_script_path"; then
+          log Warn "http-meta 已在运行 (PID $(cat "$http_meta_pid_file")), 跳过启动"
+        else
+          rotate_http_meta_log
+          if ! $node_su "env $meta_drop_env '$bin_path' '$daemon' '$bin_path' '${drop_preload}' '$http_meta_script_path' '$run_path/http-meta.log' '$run_path/http-meta_error.log' '$http_meta_pid_file'"; then
+            log Error "http-meta 启动失败 (node daemon 退出码非 0, 原因见上方 stderr)"
+            node_start_failed=1
+          fi
+        fi
       fi
     else
-      env $drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$script_path" "$run_path/${bin_name}.log" "$run_path/${bin_name}_error.log"
+      if is_pid_running "$pid_file" "$script_path"; then
+        log Warn "Sub-Store 已在运行 (PID $(cat "$pid_file")), 跳过启动"
+      else
+        rotate_sub_store_log
+        if ! env $drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$script_path" "$run_path/${bin_name}.log" "$run_path/${bin_name}_error.log" "$pid_file"; then
+          log Error "Sub-Store 启动失败 (node daemon 退出码非 0, 原因见上方 stderr)"
+          node_start_failed=1
+        fi
+      fi
       if [ "${run_http_meta:-true}" = "true" ]; then
-        env $meta_drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$http_meta_script_path" "$run_path/http-meta.log" "$run_path/http-meta_error.log"
+        if is_pid_running "$http_meta_pid_file" "$http_meta_script_path"; then
+          log Warn "http-meta 已在运行 (PID $(cat "$http_meta_pid_file")), 跳过启动"
+        else
+          rotate_http_meta_log
+          if ! env $meta_drop_env "$bin_path" "$daemon" "$bin_path" "${drop_preload}" "$http_meta_script_path" "$run_path/http-meta.log" "$run_path/http-meta_error.log" "$http_meta_pid_file"; then
+            log Error "http-meta 启动失败 (node daemon 退出码非 0, 原因见上方 stderr)"
+            node_start_failed=1
+          fi
+        fi
       fi
     fi
+
+    [ "$node_start_failed" = "1" ] && return 1
   else
     if is_pid_running "$pid_file" "$script_path"; then
       log Warn "Sub-Store 已在运行 (PID $(cat "$pid_file")), 跳过启动"
