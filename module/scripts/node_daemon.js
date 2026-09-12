@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 
-const { fchmodSync, fchownSync, openSync } = require('node:fs');
+const { fchmodSync, fchownSync, openSync, writeFileSync } = require('node:fs');
 const { spawn } = require('node:child_process');
 
-const [nodePath, preloadPath, scriptPath, stdoutPath, stderrPath] = process.argv.slice(2);
+const [nodePath, preloadPath, scriptPath, stdoutPath, stderrPath, pidFilePath] = process.argv.slice(2);
 
 if (![nodePath, preloadPath, scriptPath, stdoutPath, stderrPath].every(Boolean)) {
-  console.error('node_daemon: usage: <node> <preload> <script> <stdout> <stderr>');
+  console.error('node_daemon: usage: <node> <preload> <script> <stdout> <stderr> [pidfile]');
   process.exit(1);
 }
 
@@ -55,6 +55,15 @@ child.once('error', (err) => {
 });
 
 child.once('spawn', () => {
+  if (pidFilePath) {
+    try {
+      writeFileSync(pidFilePath, String(child.pid));
+    } catch (err) {
+      console.error('node_daemon: failed to write pid file:', err.message);
+      child.kill();
+      process.exit(1);
+    }
+  }
   child.unref();
   process.exit(0);
 });
