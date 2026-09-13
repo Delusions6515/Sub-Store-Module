@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.0 (109-d08661e-release)
+- feat(lib): 添加后端路径检查和 CORS 来源验证功能
+- feat(scripts): add pid file support and duplicate run check (#12)
+- chore(ci): 仅在 dev 分支推送时触发 canary 构建
+- feat(service): 支持保存 pid 并据此停止/判断是否正在运行
+
 ## v2.2.6 (105-573b3af-release)
 - fix(action): 移除 APatch 的 clear 调用
   - APatch 管理器无法正常转义 clear 的输出
@@ -22,16 +28,6 @@
 - feat(config): 增加 http-meta 运行开关参数 (#9)
   - Co-authored-by: Delusions6515 <213381333+Delusions6515@users.noreply.github.com>
 - fix(service): 让 node 降权进程脱离调用会话 (#8)
-
-## v2.2.3 (96-45513be-release)
-- feat: 安装脚本新增追加新配置功能
-- feat: 新增降权方式配置 `drop_priv_method`
-  - KSU/AP 可用 `su`(默认)|`node`，Magisk 仅可用 `node`
-  - 同时修复使用 node 降权导致在 KSU/AP 环境下 Sub-Store 卡死的问题
-  - 更新 README.md
-- fix: 修复 root 启动时 Sub-Store 卡住的问题
-  - 不推荐使用 root 用户运行！
-- fix(ci): 修复发布说明生成逻辑
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
