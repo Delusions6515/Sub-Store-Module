@@ -83,6 +83,12 @@ draw_menu() {
     echo "  [!] SUB_STORE_FRONTEND_BACKEND_PATH 仍为模块默认值"
     echo "      建议用下方菜单项重新生成随机路径"
   fi
+  if backend_path_is_empty && cros_allowed_origins_is_all; then
+    echo "  [!] SUB_STORE_FRONTEND_BACKEND_PATH 为 \"/\""
+    echo "      且 SUB_STORE_CORS_ALLOWED_ORIGINS 允许所有来源访问"
+    echo "      存在安全隐患, 建议用下方菜单项重新生成随机路径"
+    echo "      或修改 SUB_STORE_CORS_ALLOWED_ORIGINS 仅允许可信来源访问"
+  fi
   # 安全提醒: 运行用户为 root 时告警
   if run_user_is_root; then
     echo "  [!] 当前运行用户为 root, 建议改为 shell 用户"

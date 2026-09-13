@@ -112,6 +112,14 @@ backend_path_is_default() {
   [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "$DEFAULT_BACKEND_PATH" ]
 }
 
+backend_path_is_empty() {
+  [ "${SUB_STORE_FRONTEND_BACKEND_PATH:-}" = "/" ]
+}
+
+cros_allowed_origins_is_all() {
+  [ "${SUB_STORE_CORS_ALLOWED_ORIGINS:-}" = "*" ]
+}
+
 run_user_is_root() {
   [ "$run_as_user" != "shell" ] && [ "$run_as_user" != "2000" ]
 }
@@ -187,6 +195,18 @@ print_status_json() {
     _backend_path_is_default=false
   fi
 
+  if backend_path_is_empty; then
+    _backend_path_is_empty=true
+  else
+    _backend_path_is_empty=false
+  fi
+
+  if cros_allowed_origins_is_all; then
+    _cros_allowed_origins_is_all=true
+  else
+    _cros_allowed_origins_is_all=false
+  fi
+
   if run_user_is_root; then
     _run_user_is_root=true
   else
@@ -203,6 +223,8 @@ print_status_json() {
   printf '"backUrl":"%s",' "$(json_escape "$BACK_ADDR")"
   printf '"openUrl":"%s",' "$(json_escape "$OPEN_URL")"
   printf '"backendPathIsDefault":%s,' "$_backend_path_is_default"
+  printf '"backendPathIsEmpty":%s,' "$_backend_path_is_empty"
+  printf '"crosAllowedOriginsIsAll":%s,' "$_cros_allowed_origins_is_all"
   printf '"runUserIsRoot":%s' "$_run_user_is_root"
   printf '}\n'
 }
