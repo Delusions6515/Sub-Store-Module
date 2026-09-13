@@ -1,5 +1,7 @@
 # Changelog
 
+## v2.3.1 (109-357d66b-release)
+
 ## v2.3.0 (109-d08661e-release)
 - feat(lib): 添加后端路径检查和 CORS 来源验证功能
 - feat(scripts): add pid file support and duplicate run check (#12)
@@ -20,14 +22,6 @@
 - feat(lib, config): 增加不安全的下载方式 & 优化 lib.sh:download 逻辑 (#10)
   - 当 lib:download curl,wget 方法不可用, 且 config `allow_nosafe_download` 为 `true` 时, 使用 root 环境提供的 `busybox wget` 来进行下载
   - 优化 lib:download, 改为 case 方便后续扩展
-
-## v2.2.4 (100-c283334-release)
-- chore(docs): update README.md
-- chore: module.prop 更新 author，新增 lanyi233
-  - @lanyi233 实现了 node 降权的所有逻辑
-- feat(config): 增加 http-meta 运行开关参数 (#9)
-  - Co-authored-by: Delusions6515 <213381333+Delusions6515@users.noreply.github.com>
-- fix(service): 让 node 降权进程脱离调用会话 (#8)
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
