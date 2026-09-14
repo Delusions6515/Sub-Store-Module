@@ -88,6 +88,79 @@ stop_by_pidfile() {
   rm -f "$pid_file"
 }
 
+# ---------- http-meta VPN 绕过 ----------
+# Android fwmark 的 0x20000 为 protectedFromVpn。http-meta 使用独立主 GID，
+# 仅匹配该进程的本地出站流量，不影响同为 uid 2000 的 Sub-Store / adb shell。
+HTTP_META_BYPASS_GID=9999
+HTTP_META_BYPASS_MARK="0x20000/0x20000"
+
+http_meta_bypass_vpn_enabled() {
+  [ "${run_http_meta:-true}" = "true" ] || return 1
+  [ "${run_http_meta_bypass_vpn:-true}" = "true" ] || return 1
+  [ "${run_as_user:-root}" = "shell" ] || [ "${run_as_user:-root}" = "2000" ]
+}
+
+http_meta_bypass_vpn_rule() {
+  local ipt="$1"
+  local action="$2"
+
+  command -v "$ipt" >/dev/null 2>&1 || return 1
+
+  case "$action" in
+    add)
+      "$ipt" -t mangle -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1 && return 0
+      "$ipt" -t mangle -I OUTPUT 1 \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK"
+      ;;
+    del)
+      while "$ipt" -t mangle -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1; do
+        "$ipt" -t mangle -D OUTPUT \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1 || break
+      done
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+setup_http_meta_bypass_vpn() {
+  local failed=0
+
+  if ! http_meta_bypass_vpn_enabled; then
+    cleanup_http_meta_bypass_vpn
+    return 0
+  fi
+
+  if ! http_meta_bypass_vpn_rule iptables add; then
+    log Error "无法添加 http-meta IPv4 VPN 绕过规则"
+    failed=1
+  fi
+  if ! http_meta_bypass_vpn_rule ip6tables add; then
+    log Error "无法添加 http-meta IPv6 VPN 绕过规则"
+    failed=1
+  fi
+
+  [ "$failed" = "0" ] || {
+    cleanup_http_meta_bypass_vpn
+    return 1
+  }
+
+  log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
+  return 0
+}
+
+cleanup_http_meta_bypass_vpn() {
+  http_meta_bypass_vpn_rule iptables del >/dev/null 2>&1 || true
+  http_meta_bypass_vpn_rule ip6tables del >/dev/null 2>&1 || true
+}
+
 start_bin() {
   log Info "starting ${bin_name} service."
   ulimit -SHn 1000000
@@ -100,10 +173,14 @@ start_bin() {
   # 数据目录在 /data/local/sub_store (shell 域原生可访问), 无需额外 SELinux 规则
   # shell 用户可选 su（启动前切换用户）或 node（Node preload 自降权）
   # 3003(inet 组) https://android.googlesource.com/platform/system/core/+/refs/heads/main/libcutils/include/private/android_filesystem_config.h#167
-  # http-meta 是否带 inet 组由 run_http_meta_with_inet 控制 (带 = 走 VPN 但可用系统 DNS)
-  local drop_preload="" drop_env="" meta_drop_env="" root_su="" shell_su="" meta_shell_su="" node_su="" method=""
+  # http-meta 的 inet 组仅控制 Android 系统 DNS 权限; VPN 绕过由 run_http_meta_bypass_vpn 控制
+  local drop_preload="" drop_env="" meta_drop_env="" root_su="" shell_su="" meta_shell_su="" node_su="" method="" meta_gid=2000
   case "${run_as_user:-root}" in
     shell|2000)
+      if [ "${run_http_meta_bypass_vpn:-true}" = "true" ]; then
+        meta_gid="$HTTP_META_BYPASS_GID"
+      fi
+
       method=${drop_priv_method:-}
       if [ -z "$method" ]; then
         if [ -d /data/adb/ksu ] || [ -d /data/adb/ap ]; then
@@ -121,13 +198,13 @@ start_bin() {
           fi
           shell_su="su 2000 -g 2000 -G 3003 -c"
           log Info "降权方式: su (Sub-Store: uid 2000 + inet 组 3003)"
-          if [ "${run_http_meta}" = "true" ];then
+          if [ "${run_http_meta}" = "true" ]; then
             if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-              meta_shell_su="$shell_su"
-              log Info "降权方式: su (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
+              meta_shell_su="su 2000 -g $meta_gid -G 3003 -c"
+              log Info "降权方式: su (http-meta: uid 2000 + gid $meta_gid + inet 组 3003)"
             else
-              meta_shell_su="su 2000 -g 2000 -c"
-              log Info "降权方式: su (http-meta: uid 2000; 直连)"
+              meta_shell_su="su 2000 -g $meta_gid -c"
+              log Info "降权方式: su (http-meta: uid 2000 + gid $meta_gid)"
             fi
           fi
           ;;
@@ -140,11 +217,11 @@ start_bin() {
           fi
           log Info "降权方式: node (Sub-Store: uid 2000 + inet 组 3003)"
           if [ "${run_http_meta_with_inet:-false}" = "true" ]; then
-            meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS=3003"
-            log Info "降权方式: node (http-meta: uid 2000 + inet 组 3003; 走 VPN)"
+            meta_drop_env="DROP_UID=2000 DROP_GID=$meta_gid DROP_GROUPS=3003"
+            log Info "降权方式: node (http-meta: uid 2000 + gid $meta_gid + inet 组 3003)"
           else
-            meta_drop_env="DROP_UID=2000 DROP_GID=2000 DROP_GROUPS="
-            log Info "降权方式: node (http-meta: uid 2000; 直连)"
+            meta_drop_env="DROP_UID=2000 DROP_GID=$meta_gid DROP_GROUPS="
+            log Info "降权方式: node (http-meta: uid 2000 + gid $meta_gid)"
           fi
           ;;
         *)
@@ -175,6 +252,11 @@ start_bin() {
   # 运行前重新授权: 更新脚本以 root 写入后, 低权限用户目录所有权可能漂移
   if [ "${run_as_user:-}" = "shell" ] || [ "${run_as_user:-}" = "2000" ]; then
     chown -R 2000:2000 "$run_path" "$http_meta_meta_path" 2>/dev/null || true
+  fi
+
+  # 配置 http-meta 的 Android VPN 绕过规则
+  if ! setup_http_meta_bypass_vpn; then
+    return 1
   fi
 
   # 导入 sub_store.env 中定义的全部环境变量 (对应 Docker 版, 新增变量无需改脚本)
@@ -301,6 +383,7 @@ stop_service() {
   # 兜底: 结束残留的 mihomo 内核
   _pids=$(pidof http-meta 2>/dev/null)
   [ -n "$_pids" ] && kill -15 $_pids 2>/dev/null
+  cleanup_http_meta_bypass_vpn
   return 0
 }
 
