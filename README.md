@@ -109,7 +109,7 @@ http-meta 子菜单:
 > 旧版默认值所有安装者都一样，等同公开路径。若 env 中仍为模块默认值，执行菜单顶部会常驻告警，  
 > 可用 **生成并替换 SUB_STORE_FRONTEND_BACKEND_PATH** 一键重新生成（生成后自动重启生效）。
 
-> ⚠️ http-meta 默认直连不走 VPN；如需其走 VPN（同时可用系统 DNS），在 `sub_store.config` 中设 `run_http_meta_with_inet="true"`。
+> ⚠️ http-meta 的 `inet` 权限与 VPN 路由相互独立：`run_http_meta_with_inet` 仅控制 Android 系统 DNS 权限；`run_http_meta_bypass_vpn` 默认开启，通过 `protectedFromVpn` 标记让 http-meta 绕过 Android VPN。
 
 `sub_store.config` 中的模块配置：
 
@@ -119,7 +119,8 @@ http-meta 子菜单:
 | `run_as_user` | 运行用户： <br> `shell`(uid `2000` 低权限)  <br> `root`/置空=root |
 | `drop_priv_method` | shell 用户降权方式：<br> `su`：启动前经 `su 2000` 切换（KSU/APatch 推荐）；<br> `node`：Node preload 自降权（KSU/APatch 经 `su 0 -c` 启动；Magisk 推荐） |
 | `run_http_meta` | 是否运行 http-meta `true`(默认)/`false` |
-| `run_http_meta_with_inet` | http-meta 是否授予 `inet` 组（仅 `shell` 用户生效）：<br> `false`(默认) 流量直连不走 VPN；<br> `true` 可用系统 DNS 但流量走 VPN |
+| `run_http_meta_with_inet` | http-meta 是否授予 `inet` 组（仅 `shell` 用户生效）：`false`(默认) 不授予；`true` 允许使用 Android 系统 DNS |
+| `run_http_meta_bypass_vpn` | http-meta 是否绕过 Android VPN（仅 `shell` 用户生效）：`true`(默认) 绕过 VPN；`false` 跟随系统 VPN 路由 |
 | `allow_nosafe_download` | 是否允许不安全的下载方式 `true`/`false`(默认) : 用于更新时在所有下载方式不可用时降级使用 root 环境提供的 `busybox wget` 下载 (可能存在安全风险) |
 
 ## 手动操作
