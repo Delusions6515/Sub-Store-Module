@@ -93,6 +93,7 @@ stop_by_pidfile() {
 # 仅匹配该进程的本地出站流量，不影响同为 uid 2000 的 Sub-Store / adb shell。
 HTTP_META_BYPASS_GID=9999
 HTTP_META_BYPASS_MARK="0x20000/0x20000"
+HTTP_META_BYPASS_CHAIN="SUBSTORE_HTTPMETA"
 
 http_meta_bypass_vpn_enabled() {
   [ "${run_http_meta:-true}" = "true" ] || return 1
@@ -103,19 +104,13 @@ http_meta_bypass_vpn_enabled() {
 http_meta_bypass_vpn_rule() {
   local ipt="$1"
   local action="$2"
+  local extra_mark="${http_meta_bypass_vpn_extra_mark:-}"
 
   command -v "$ipt" >/dev/null 2>&1 || return 1
 
   case "$action" in
     add)
-      "$ipt" -t mangle -C OUTPUT \
-        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
-        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1 && return 0
-      "$ipt" -t mangle -I OUTPUT 1 \
-        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
-        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK"
-      ;;
-    del)
+      # 清理旧版直接挂在 OUTPUT 上的规则
       while "$ipt" -t mangle -C OUTPUT \
         -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
         -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1; do
@@ -123,6 +118,44 @@ http_meta_bypass_vpn_rule() {
           -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
           -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1 || break
       done
+
+      "$ipt" -t mangle -N "$HTTP_META_BYPASS_CHAIN" 2>/dev/null || true
+      "$ipt" -t mangle -F "$HTTP_META_BYPASS_CHAIN" || return 1
+      "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
+        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" || return 1
+
+      if [ -n "$extra_mark" ]; then
+        "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
+          -j MARK --set-xmark "$extra_mark" || return 1
+      fi
+
+      "$ipt" -t mangle -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 ||
+        "$ipt" -t mangle -I OUTPUT 1 \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j "$HTTP_META_BYPASS_CHAIN"
+      ;;
+    del)
+      while "$ipt" -t mangle -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1; do
+        "$ipt" -t mangle -D OUTPUT \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 || break
+      done
+
+      # 兼容清理旧版直接挂在 OUTPUT 上的 protectedFromVpn 规则
+      while "$ipt" -t mangle -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1; do
+        "$ipt" -t mangle -D OUTPUT \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1 || break
+      done
+
+      "$ipt" -t mangle -F "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 || true
+      "$ipt" -t mangle -X "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 || true
       ;;
     *)
       return 1
@@ -157,7 +190,11 @@ setup_http_meta_bypass_vpn() {
     return 1
   }
 
-  log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
+  if [ -n "${http_meta_bypass_vpn_extra_mark:-}" ]; then
+    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn + ${http_meta_bypass_vpn_extra_mark})"
+  else
+    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
+  fi
   return 0
 }
 
