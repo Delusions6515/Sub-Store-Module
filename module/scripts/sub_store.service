@@ -142,9 +142,14 @@ setup_http_meta_bypass_vpn() {
     log Error "无法添加 http-meta IPv4 VPN 绕过规则"
     failed=1
   fi
-  if ! http_meta_bypass_vpn_rule ip6tables add; then
-    log Error "无法添加 http-meta IPv6 VPN 绕过规则"
-    failed=1
+
+  if command -v ip6tables >/dev/null 2>&1; then
+    if ! http_meta_bypass_vpn_rule ip6tables add; then
+      log Error "无法添加 http-meta IPv6 VPN 绕过规则"
+      failed=1
+    fi
+  else
+    log Warn "未找到 ip6tables, 跳过 http-meta IPv6 VPN 绕过规则"
   fi
 
   [ "$failed" = "0" ] || {
