@@ -104,7 +104,7 @@ http_meta_bypass_vpn_enabled() {
 http_meta_bypass_vpn_rule() {
   local ipt="$1"
   local action="$2"
-  local extra_mark="${http_meta_bypass_vpn_extra_mark:-}"
+  local connmark="${http_meta_bypass_vpn_connmark:-}"
 
   command -v "$ipt" >/dev/null 2>&1 || return 1
 
@@ -124,9 +124,9 @@ http_meta_bypass_vpn_rule() {
       "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
         -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" || return 1
 
-      if [ -n "$extra_mark" ]; then
+      if [ -n "$connmark" ]; then
         "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
-          -j MARK --set-xmark "$extra_mark" || return 1
+          -j CONNMARK --set-xmark "$connmark" || return 1
       fi
 
       "$ipt" -t mangle -C OUTPUT \
@@ -190,8 +190,8 @@ setup_http_meta_bypass_vpn() {
     return 1
   }
 
-  if [ -n "${http_meta_bypass_vpn_extra_mark:-}" ]; then
-    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn + ${http_meta_bypass_vpn_extra_mark})"
+  if [ -n "${http_meta_bypass_vpn_connmark:-}" ]; then
+    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn + connmark ${http_meta_bypass_vpn_connmark})"
   else
     log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
   fi
