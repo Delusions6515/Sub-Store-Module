@@ -156,6 +156,21 @@ pick() {
   done
 }
 
+# 操作完成后保留结果页，避免日志/警告被下一次菜单清屏覆盖
+# 结果页不自动超时，按任意音量键返回菜单。
+wait_result() {
+  echo ""
+  echo "---------------------------------------"
+  echo "按任意音量键返回菜单"
+  while :; do
+    read_vol
+    case $? in
+      0|1) return 0 ;;
+      *) : ;; # 超时及其它事件均忽略，继续等待音量键
+    esac
+  done
+}
+
 # ---------- 单实例: 新 action 终止本模块上一次 action ----------
 stop_action_instance() {
   local owner_pid
@@ -247,6 +262,7 @@ run_op() {
   fi
   echo ""
   echo "== $title 结束 (退出码 $rc) =="
+  wait_result
   return $rc
 }
 
