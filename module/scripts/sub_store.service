@@ -88,12 +88,14 @@ stop_by_pidfile() {
   rm -f "$pid_file"
 }
 
-# ---------- http-meta VPN 绕过 ----------
+# ---------- http-meta VPN / 透明代理绕过 ----------
 # Android fwmark 的 0x20000 为 protectedFromVpn。http-meta 使用独立主 GID，
 # 仅匹配该进程的本地出站流量，不影响同为 uid 2000 的 Sub-Store / adb shell。
+# 可选透明代理 mark 在 raw OUTPUT 提前设置，protectedFromVpn 在 mangle OUTPUT 末尾补上。
 HTTP_META_BYPASS_GID=9999
 HTTP_META_BYPASS_MARK="0x20000/0x20000"
 HTTP_META_BYPASS_CHAIN="SUBSTORE_HTTPMETA"
+HTTP_META_BYPASS_RAW_CHAIN="SUBSTORE_HTTPMETA_RAW"
 
 http_meta_bypass_vpn_enabled() {
   [ "${run_http_meta:-true}" = "true" ] || return 1
@@ -104,13 +106,12 @@ http_meta_bypass_vpn_enabled() {
 http_meta_bypass_vpn_rule() {
   local ipt="$1"
   local action="$2"
-  local connmark="${http_meta_bypass_vpn_connmark:-}"
 
   command -v "$ipt" >/dev/null 2>&1 || return 1
 
   case "$action" in
     add)
-      # 清理旧版直接挂在 OUTPUT 上的规则
+      # 清理旧版直接挂在 OUTPUT 上的 protectedFromVpn 规则
       while "$ipt" -t mangle -C OUTPUT \
         -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
         -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1; do
@@ -124,17 +125,19 @@ http_meta_bypass_vpn_rule() {
       "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
         -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" || return 1
 
-      if [ -n "$connmark" ]; then
-        "$ipt" -t mangle -A "$HTTP_META_BYPASS_CHAIN" \
-          -j CONNMARK --set-xmark "$connmark" || return 1
-      fi
-
-      "$ipt" -t mangle -C OUTPUT \
+      # 旧版把 jump 插在 OUTPUT 首位；先全部移除，再追加到末尾。
+      # 这样 sing-box 后续重启时用 -I 插入的 auto_redirect 规则仍会位于本规则之前。
+      while "$ipt" -t mangle -C OUTPUT \
         -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
-        -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 ||
-        "$ipt" -t mangle -I OUTPUT 1 \
+        -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1; do
+        "$ipt" -t mangle -D OUTPUT \
           -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
-          -j "$HTTP_META_BYPASS_CHAIN"
+          -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 || break
+      done
+
+      "$ipt" -t mangle -A OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_CHAIN"
       ;;
     del)
       while "$ipt" -t mangle -C OUTPUT \
@@ -145,7 +148,6 @@ http_meta_bypass_vpn_rule() {
           -j "$HTTP_META_BYPASS_CHAIN" >/dev/null 2>&1 || break
       done
 
-      # 兼容清理旧版直接挂在 OUTPUT 上的 protectedFromVpn 规则
       while "$ipt" -t mangle -C OUTPUT \
         -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
         -j MARK --set-xmark "$HTTP_META_BYPASS_MARK" >/dev/null 2>&1; do
@@ -163,8 +165,64 @@ http_meta_bypass_vpn_rule() {
   esac
 }
 
+http_meta_auto_redirect_rule() {
+  local ipt="$1"
+  local action="$2"
+  local mark="${http_meta_bypass_auto_redirect_mark:-}"
+
+  command -v "$ipt" >/dev/null 2>&1 || return 1
+
+  case "$action" in
+    add)
+      [ -n "$mark" ] || return 0
+
+      "$ipt" -t raw -N "$HTTP_META_BYPASS_RAW_CHAIN" 2>/dev/null || true
+      "$ipt" -t raw -F "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || return 1
+
+      if ! "$ipt" -t raw -A "$HTTP_META_BYPASS_RAW_CHAIN" \
+        -j MARK --set-xmark "$mark" >/dev/null 2>&1; then
+        "$ipt" -t raw -F "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+        "$ipt" -t raw -X "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+        return 1
+      fi
+
+      while "$ipt" -t raw -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1; do
+        "$ipt" -t raw -D OUTPUT \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || break
+      done
+
+      if ! "$ipt" -t raw -I OUTPUT 1 \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1; then
+        "$ipt" -t raw -F "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+        "$ipt" -t raw -X "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+        return 1
+      fi
+      ;;
+    del)
+      while "$ipt" -t raw -C OUTPUT \
+        -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+        -j "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1; do
+        "$ipt" -t raw -D OUTPUT \
+          -m owner --uid-owner 2000 --gid-owner "$HTTP_META_BYPASS_GID" \
+          -j "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || break
+      done
+      "$ipt" -t raw -F "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+      "$ipt" -t raw -X "$HTTP_META_BYPASS_RAW_CHAIN" >/dev/null 2>&1 || true
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 setup_http_meta_bypass_vpn() {
   local failed=0
+  local auto_redirect_failed=0
+  local auto_redirect_mark="${http_meta_bypass_auto_redirect_mark:-}"
 
   if ! http_meta_bypass_vpn_enabled; then
     cleanup_http_meta_bypass_vpn
@@ -190,15 +248,36 @@ setup_http_meta_bypass_vpn() {
     return 1
   }
 
-  if [ -n "${http_meta_bypass_vpn_connmark:-}" ]; then
-    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn + connmark ${http_meta_bypass_vpn_connmark})"
-  else
-    log Info "http-meta VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
+  log Info "http-meta Android VPN 绕过已启用 (gid $HTTP_META_BYPASS_GID, protectedFromVpn)"
+
+  if [ -n "$auto_redirect_mark" ]; then
+    if ! http_meta_auto_redirect_rule iptables add; then
+      auto_redirect_failed=1
+      log Warn "当前设备的 IPv4 iptables 不支持通过 raw OUTPUT MARK 稳定绕过透明代理"
+    fi
+
+    if command -v ip6tables >/dev/null 2>&1; then
+      if ! http_meta_auto_redirect_rule ip6tables add; then
+        auto_redirect_failed=1
+        log Warn "当前设备的 IPv6 iptables 不支持通过 raw OUTPUT MARK 稳定绕过透明代理"
+      fi
+    fi
+
+    if [ "$auto_redirect_failed" = "0" ]; then
+      log Info "http-meta 透明代理绕过已启用 (raw OUTPUT mark $auto_redirect_mark)"
+    else
+      log Warn "Android VPN 绕过仍可继续使用，但无法保证绕过 sing-box auto_redirect 等 root 透明代理"
+      log Warn "如使用 sing-box TUN，请关闭 auto_redirect 并保留 auto_route"
+      log Warn "详见 docs/http-meta-vpn-bypass.md"
+    fi
   fi
+
   return 0
 }
 
 cleanup_http_meta_bypass_vpn() {
+  http_meta_auto_redirect_rule iptables del >/dev/null 2>&1 || true
+  http_meta_auto_redirect_rule ip6tables del >/dev/null 2>&1 || true
   http_meta_bypass_vpn_rule iptables del >/dev/null 2>&1 || true
   http_meta_bypass_vpn_rule ip6tables del >/dev/null 2>&1 || true
 }
@@ -296,7 +375,7 @@ start_bin() {
     chown -R 2000:2000 "$run_path" "$http_meta_meta_path" 2>/dev/null || true
   fi
 
-  # 配置 http-meta 的 Android VPN 绕过规则
+  # 配置 http-meta 的 Android VPN / 透明代理绕过规则
   if ! setup_http_meta_bypass_vpn; then
     return 1
   fi
