@@ -11,6 +11,10 @@
 - 开发严格遵循官方指南：[Magisk Developer Guides](https://topjohnwu.github.io/Magisk/guides.html) / [KernelSU Module Guide](https://kernelsu.org/guide/module.html) / [APatch APM Guide](https://apatch.dev/apm-guide.html)
 - 脚本基于 xream 的 [Sub-Store for Magisk, KernelSU & APatch](https://t.me/zhetengsha/1008) 重新开发（GPL-3.0）
 
+## 赞助我们
+
+请查看 [赞助方式](Sponsor.md)
+
 ## 功能
 
 | 功能 | 说明 |
