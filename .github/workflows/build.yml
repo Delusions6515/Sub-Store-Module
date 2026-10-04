@@ -83,22 +83,21 @@ jobs:
     needs: metadata
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout WebUI repo
+      - name: Checkout repo with WebUI submodule
         uses: actions/checkout@v7
         with:
-          repository: Delusions6515/Sub-Store-Module-WebUI
-          path: Sub-Store-Module-WebUI
+          submodules: recursive
 
       - name: WebUI commit hash
         id: webui-hash
-        run: echo "hash=$(git -C Sub-Store-Module-WebUI rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "hash=$(git -C webui rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # dist 按 WebUI commit hash 缓存 (4 架构共享一份), hash 不变直接复用, 跳过 pnpm install + build
       - name: Cache WebUI dist
         id: webui-cache
         uses: actions/cache@v6
         with:
-          path: Sub-Store-Module-WebUI/dist
+          path: webui/dist
           key: webui-dist-${{ steps.webui-hash.outputs.hash }}
 
       - name: Setup pnpm
@@ -113,12 +112,12 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: Sub-Store-Module-WebUI/pnpm-lock.yaml
+          cache-dependency-path: webui/pnpm-lock.yaml
 
       - name: Build WebUI
         if: steps.webui-cache.outputs.cache-hit != 'true'
         run: |
-          cd Sub-Store-Module-WebUI
+          cd webui
           pnpm install --frozen-lockfile
           pnpm build
           ls -lh dist/
@@ -127,7 +126,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: sub-store-webui-dist
-          path: Sub-Store-Module-WebUI/dist
+          path: webui/dist
           if-no-files-found: error
 
   build:

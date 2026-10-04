@@ -150,13 +150,17 @@ su -c "sh /data/adb/modules/sub_store/scripts/update_http_meta.sh all"    # 更�
 
 - 手动触发：Actions → Build Sub-Store module → Run workflow，可选 ABI 与版本号
 - 推送 `v*` tag：自动构建并发布 release
-- workflow 会额外 checkout [Delusions6515/Sub-Store-Module-WebUI](https://github.com/Delusions6515/Sub-Store-Module-WebUI)，构建后自动写入模块包内 `webroot/`
+- workflow 会初始化根目录 `webui/` 的 [WebUI submodule](https://github.com/Delusions6515/Sub-Store-Module-WebUI)，构建主仓库锁定的提交，产物自动写入模块包内 `webroot/`
+- Dependabot 按 `daily` 频率（北京时间 09:00）检查 WebUI submodule 更新，向 `dev` 提 PR；合并后更新锁定的提交
 - 所有组件在线获取，无需本地参考文件
   - node 二进制来自 [Delusions6515/node-android-build](https://github.com/Delusions6515/node-android-build) 的 release
 
 ### 本地构建
 
+首次克隆时使用 `git clone --recurse-submodules`；已有仓库在构建前初始化或同步 WebUI：
+
 ```sh
+git submodule update --init --recursive
 ./build.sh                    # 版本名取最近 git tag (如 v1.0.0), arm64-v8a
 ./build.sh 1.0.0              # 指定版本名覆盖 tag
 TARGET_ABI=armeabi-v7a ./build.sh 1.0.0   # 指定 ABI
@@ -171,10 +175,11 @@ WEBUI_DIST_DIR=/path/to/webui/dist ./build.sh
   版本名取最近 git tag（自动去 `v` 前缀），可用参数/`BUILD_TYPE` 覆盖
 
 - WebUI 集成：
-  - 默认查找相邻仓库 `../Sub-Store-Module-WebUI`，执行 `pnpm install` + `pnpm build`
+  - 默认使用根目录 `webui/` submodule，执行 `pnpm install` + `pnpm build`；可用 `WEBUI_REPO_DIR` 指定其他源码目录
   - 构建产物会自动复制到模块最终包内的 `webroot/`
   - 只想复用现成前端产物时，可用 `WEBUI_DIST_DIR=/path/to/dist` 直接指定 dist 目录
   - 若未发现 WebUI 仓库/产物，则跳过 WebUI 打包，不影响纯模块构建
+  - 更新 WebUI 版本：执行 `git -C webui fetch origin`、`git -C webui checkout <提交或标签>`，再提交主仓库中的 `webui` 指针变更；CI 不会自动追踪 WebUI 最新提交
 
 - 组件来源：
   - **node**：始终使用官方最新 LTS 版本——从 `nodejs.org` 解析当前 LTS（如 `24.19.0`），

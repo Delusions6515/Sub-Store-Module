@@ -23,7 +23,7 @@
 #   NODE_BIN_PATH    直接指定本地 node 二进制文件 (覆盖上面所有, 本地调试用)
 #   BUILD_TYPE       构建类型: release(默认)|hotfix|prerelease|canary
 #   SKIP_VERSION_CHECK  设为 1 跳过新旧版本对比 (默认对比上游最新, 过旧自动刷新)
-#   WEBUI_REPO_DIR   WebUI 源码仓库目录 (默认 ../Sub-Store-Module-WebUI)
+#   WEBUI_REPO_DIR   WebUI 源码仓库目录 (默认 ./webui submodule)
 #   WEBUI_DIST_DIR   直接指定已构建好的 WebUI dist 目录 (覆盖 WEBUI_REPO_DIR)
 #   OUT_DIR          输出目录 (默认 ./build)
 #
@@ -35,7 +35,7 @@ set -euo pipefail
 
 REPO_DIR=$(cd "$(dirname "$0")" && pwd)
 MODULE_DIR="$REPO_DIR/module"
-WEBUI_REPO_DIR="${WEBUI_REPO_DIR:-$(cd "$REPO_DIR/.." && pwd)/Sub-Store-Module-WebUI}"
+WEBUI_REPO_DIR="${WEBUI_REPO_DIR:-$REPO_DIR/webui}"
 WEBUI_DIST_DIR="${WEBUI_DIST_DIR:-}"
 OUT_DIR="${OUT_DIR:-$(pwd)/build}"
 TARGET_ABI="${TARGET_ABI:-arm64-v8a}"
