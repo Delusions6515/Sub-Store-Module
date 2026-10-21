@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.5.0 (125-5d29538-release)
+- chore(deps): bump webui from `28c71d7` to `1708288` (#16)
+- build: update git submodule
+- build: include the WebUI Monet initialization fix
+  - Update the WebUI submodule to 5692d42 so restored switch state uses
+  - strict booleans and invalid preferences remain disabled.
+- build: include optional Monet themes in WebUI
+  - Update the WebUI submodule to 4839189, which adds a persisted opt-in
+  - Monet switch and generated light and dark color palettes.
+- build: pin WebUI builds with a Git submodule
+  - Build the WebUI revision tracked at webui/ in CI and local builds.
+  - Check for submodule updates daily with Dependabot targeting dev.
+- chore(docs): 添加赞助方式
+
 ## v2.4.0 (119-8bef714-release)
 - fix: stabilize http-meta VPN bypass
 - fix: keep action results visible
@@ -19,12 +33,6 @@
 - feat(scripts): add pid file support and duplicate run check (#12)
 - chore(ci): 仅在 dev 分支推送时触发 canary 构建
 - feat(service): 支持保存 pid 并据此停止/判断是否正在运行
-
-## v2.2.6 (105-573b3af-release)
-- fix(action): 移除 APatch 的 clear 调用
-  - APatch 管理器无法正常转义 clear 的输出
-- fix(build): 修复 node 版本获取逻辑
-  - 修复 node 最新 lts 版本尚未构建时，构建失败的问题
 
 ### Full Changelog
 - [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
