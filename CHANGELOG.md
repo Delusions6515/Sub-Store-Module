@@ -1,5 +1,7 @@
 # Changelog
 
+## v2.5.1 (125-5d29538-release)
+
 ## v2.5.0 (125-5d29538-release)
 - chore(deps): bump webui from `28c71d7` to `1708288` (#16)
 - build: update git submodule
@@ -28,12 +30,6 @@
 
 ## v2.3.1 (109-357d66b-release)
 
-## v2.3.0 (109-d08661e-release)
-- feat(lib): 添加后端路径检查和 CORS 来源验证功能
-- feat(scripts): add pid file support and duplicate run check (#12)
-- chore(ci): 仅在 dev 分支推送时触发 canary 构建
-- feat(service): 支持保存 pid 并据此停止/判断是否正在运行
-
 ### Full Changelog
-- [Commit history](https://github.com/Delusions6515/Sub-Store-Module/commits/main/)
+- [Commit history](https://github.com/lanyi233/Sub-Store-Module/commits/main/)
 
